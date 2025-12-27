@@ -55,8 +55,7 @@ Install, slivka-bio configurations and dependencies:
      process, add `-v </path/to/slivka-bio-installer>:/usr/src/slivka-bio-installer` after the `run`
 2. The installer will list all services and prompt if you want to replace the existing directory.
    Answer yes [y].
-3. By default the default installation method (docker) for each service. 
-   skip if the tool is not needed.
+3. By default the default installation method (docker) is used for each service. 
 4. If you had slivka already installed in the specified directory, you may be prompted to
    overwrite some of the files.
 

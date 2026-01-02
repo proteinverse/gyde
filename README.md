@@ -56,6 +56,8 @@ Examples of GYDE integrations with state-of-the-art tools via the Slivka compute
 
 ## 📋 Table of Contents
 
+- [Overview](#overview)
+- [Key Features](#key-features)
 - [Installation](#installation)
 - [Quick Start](#quick-start)
 - [Architecture](#architecture)
@@ -66,7 +68,12 @@ Examples of GYDE integrations with state-of-the-art tools via the Slivka compute
 - [Development](#development)
 - [Contributing](#contributing)
 - [Citation](#citation)
+- [Documentation](#documentation)
+- [Troubleshooting](#troubleshooting)
+- [Future Directions](#future-directions)
 - [License](#license)
+- [Acknowledgments](#acknowledgments)
+- [Contact](#contact)
 
 ## 📦 Installation
 

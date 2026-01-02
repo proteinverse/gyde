@@ -5,7 +5,7 @@
 ![GYDE Interface](docs/figures/figure1.png)
 *Figure 1: GYDE layout showing the integrated MSA, Structure Viewer and Plotting panel. The selected sequence in the MSA viewer is used for structure visualization and highlighted in the plotting panel.*
 
-## 🎯 Overview
+## 🎯 Overview {#overview}
 
 GYDE addresses the challenge of adopting rapidly evolving computational tools in protein science and drug discovery. The platform provides:
 
@@ -14,7 +14,7 @@ GYDE addresses the challenge of adopting rapidly evolving computational tools in
 - **Collaborative workflows**: Share analysis sessions with colleagues via intuitive hyperlinks
 - **Extensible architecture**: Easy integration of new computational tools via the Slivka compute API
 
-## ✨ Key Features
+## ✨ Key Features {#key-features}
 
 ### Core Capabilities
 
@@ -75,7 +75,7 @@ Examples of GYDE integrations with state-of-the-art tools via the Slivka compute
 - [Acknowledgments](#acknowledgments)
 - [Contact](#contact)
 
-## 📦 Installation
+## 📦 Installation {#installation}
 
 ### Prerequisites
 
@@ -107,7 +107,7 @@ npm install
 
 4. **Set up MongoDB** (ensure MongoDB is running locally or configure connection string)
 
-## 🏃 Quick Start
+## 🏃 Quick Start {#quick-start}
 
 ### Development Mode
 
@@ -144,7 +144,7 @@ node index.js
 
 The application will be available at `http://localhost:3030`
 
-## 🏗️ Architecture
+## 🏗️ Architecture {#architecture}
 
 GYDE is built using a modular architecture with three main components:
 
@@ -182,7 +182,7 @@ MongoDB (Data Storage) + Slivka (Compute API)
 External Tools (AlphaFold, ProteinMPNN, etc.)
 ```
 
-## ⚙️ Configuration
+## ⚙️ Configuration {#configuration}
 
 ### Environment Variables
 
@@ -217,7 +217,7 @@ External Tools (AlphaFold, ProteinMPNN, etc.)
 |----------|-------------|
 | `SLIVKA_URL` | Slivka API server URL (for development) |
 
-## 📖 Usage Examples
+## 📖 Usage Examples {#usage-examples}
 
 ### Data Input Methods
 
@@ -261,7 +261,7 @@ curl -X POST http://localhost:3030/send-to-gyde \
   -F "session_data=@your-data.json"
 ```
 
-## 🎓 Use Cases
+## 🎓 Use Cases {#use-cases}
 
 GYDE has been successfully applied in various protein science applications. The following case studies demonstrate the platform's capabilities:
 
@@ -307,7 +307,7 @@ GYDE replicated the computational components of a published study that achieved 
 
 GYDE was used to design LRRC15-binding miniproteins for AAV capsid retargeting. The platform integrated BindCraft and RFDiffusion designs, merged experimental binding and VLP yield data, and enabled rapid analysis of sequence-structure-function relationships to identify promising candidates.
 
-## 🐳 Docker Deployment
+## 🐳 Docker Deployment {#docker-deployment}
 
 ### Software Requirements
 
@@ -340,7 +340,7 @@ docker compose up gyde-server
 
 The application will be available at `http://localhost:3030`
 
-## 🛠️ Development
+## 🛠️ Development {#development}
 
 ### Project Structure
 
@@ -373,7 +373,7 @@ cd gyde-frontend
 npm test
 ```
 
-## 🤝 Contributing
+## 🤝 Contributing {#contributing}
 
 We welcome contributions!
 
@@ -383,18 +383,18 @@ We welcome contributions!
 4. Push to the branch (`git push origin feature/amazing-feature`)
 5. Open a Pull Request
 
-## 📄 Citation
+## 📄 Citation {#citation}
 
 If you use GYDE in your research, please cite this repository.
 
 
 *Note: Update with actual citation information once the manuscript is published*
 
-## 📚 Documentation
+## 📚 Documentation {#documentation}
 
 - [Send-to-GYDE Protocol](send-to-gyde/README.md)
 
-## 🐛 Troubleshooting
+## 🐛 Troubleshooting {#troubleshooting}
 
 ### Common Issues
 
@@ -417,24 +417,24 @@ If you use GYDE in your research, please cite this repository.
 - Check Slivka service configuration
 - Review job logs in Slivka interface
 
-## 🔮 Future Directions
+## 🔮 Future Directions {#future-directions}
 
 - Integration of Large Language Models (LLMs) for prompt-based access to GYDE capabilities
 - Support for conformational dynamics and molecular dynamics trajectories
 - Enhanced visualization capabilities for complex datasets
 - Expanded integration with external data sources and LIMS systems
 
-## 📝 License
+## 📝 License {#license}
 
 Genentech Non-Commercial Software License
 
 See [LICENSE](LICENSE) file for details.
 
-## 🙏 Acknowledgments
+## 🙏 Acknowledgments {#acknowledgments}
 
 GYDE was developed at Genentech Research and Early Development by Thomas Down and Kiran Mukhyala. 
 
-## 📧 Contact
+## 📧 Contact {#contact}
 
 - **Issues**: [GitHub Issues](https://github.com/proteinverse/gyde/issues)
 - **Discussions**: [GitHub Discussions](https://github.com/yourusername/gyde/discussions)

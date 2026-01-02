@@ -28,7 +28,7 @@ GYDE addresses the challenge of adopting rapidly evolving computational tools in
 
 ### Computational Tools Integration
 
-GYDE integrates with numerous state-of-the-art tools via the Slivka compute API:
+Examples of GYDE integrations with state-of-the-art tools via the Slivka compute API:
 
 **Structure Prediction:**
 - AlphaFold2, Boltz-1/2, Chai-1r, OpenFold3
@@ -45,7 +45,7 @@ GYDE integrates with numerous state-of-the-art tools via the Slivka compute API:
 - MAFFT (multiple sequence alignment)
 - Absolve (antibody numbering)
 - RaSP, Rosetta ΔΔG (stability prediction)
-- Therapeutic Antibody Profiler (TAP), MolDesk (developability)
+- Therapeutic Antibody Profiler (TAP), MolDesk (Ab developability)
 
 ### Data Management
 
@@ -368,7 +368,7 @@ npm test
 
 ## 🤝 Contributing
 
-We welcome contributions! Please see our [Contributing Guidelines](CONTRIBUTING.md) for details.
+We welcome contributions!
 
 1. Fork the repository
 2. Create a feature branch (`git checkout -b feature/amazing-feature`)
@@ -378,26 +378,14 @@ We welcome contributions! Please see our [Contributing Guidelines](CONTRIBUTING.
 
 ## 📄 Citation
 
-If you use GYDE in your research, please cite:
+If you use GYDE in your research, please cite this repository.
 
-```bibtex
-@article{gyde2024,
-  title={GYDE: A collaborative drug discovery platform for AI-powered protein design and engineering},
-  author={Down, Thomas and Warowny, Mateusz and Walker, April and D'Ascenzo, Luigi and Lee, Donald and Zhou, Zhenru and Cao, Shengya and Bainbridge, Travis W. and Nicoludis, John M. and Harris, Seth F. and Mukhyala, Kiran},
-  journal={[Journal Name]},
-  year={2024},
-  doi={[DOI]}
-}
-```
 
 *Note: Update with actual citation information once the manuscript is published*
 
 ## 📚 Documentation
 
-- [User Guide](docs/USER_GUIDE.md)
-- [API Documentation](docs/API.md)
 - [Send-to-GYDE Protocol](send-to-gyde/README.md)
-- [Manuscript](docs/GYDE_Manuscript.pdf)
 
 ## 🐛 Troubleshooting
 
@@ -431,13 +419,13 @@ If you use GYDE in your research, please cite:
 
 ## 📝 License
 
-[Specify your license here - e.g., MIT, Apache 2.0, etc.]
+Genentech Non-Commercial Software License
 
 See [LICENSE](LICENSE) file for details.
 
 ## 🙏 Acknowledgments
 
-GYDE was developed at Genentech Research and Early Development. We thank all contributors and the open-source community for their support.
+GYDE was developed at Genentech Research and Early Development by Thomas Down and Kiran Mukhyala. 
 
 ## 📧 Contact
 

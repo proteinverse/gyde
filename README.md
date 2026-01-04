@@ -432,7 +432,7 @@ See [LICENSE](LICENSE) file for details.
 
 ## Acknowledgments
 
-GYDE was developed at Genentech Research and Early Development by Thomas Down and Kiran Mukhyala. 
+GYDE was developed at Genentech Research and Early Development by Thomas Down and Kiran Mukhyala with critical support, feedback and input from the Computational Structural Biology group, Mateusz Warowny, April Walker, Luigi D’Ascenzo, Donald Lee, Travis W. Bainbridge, Jack  Nicoludis and Seth Harris.
 
 ## Contact
 

@@ -75,16 +75,47 @@ Examples of GYDE integrations with state-of-the-art tools via the Slivka compute
 - [Acknowledgments](#acknowledgments)
 - [Contact](#contact)
 
-## Installation
+## Docker Deployment
+
+### Software Requirements
+
+- Docker Engine with Docker Buildx and Docker Compose, **or** Podman with podman-compose
+- Git (for dependencies installed from git repositories)
+- At least 8GB of memory allocated to Docker/Podman containers
+
+**Podman Users**: GYDE works with Podman. Install `podman` and `podman-compose`, initialize a machine with sufficient memory (`podman machine init --memory 8192`), then replace `docker compose` with `podman-compose` in the commands below.
+
+### Setup Instructions
+
+1. **Designate an empty directory for Slivka data files and set the environment variable:**
+```bash
+export SLIVKA_DATA_DIR=/path/to/slivka/data
+```
+
+2. **Install Slivka-bio configurations and dependencies:**
+```bash
+docker compose --profile setup run slivka-bio-installer
+```
+   - The `--profile setup` flag is required to access the installer service
+   - Follow the prompts to install services
+   - By default, Docker installation method is used for each service
+   - If prompted, confirm overwriting existing files
+
+3. **Start the GYDE server:**
+```bash
+docker compose up gyde-server
+```
+
+The application will be available at `http://localhost:3030`
+
+## Local Installation
 
 ### Prerequisites
 
 - **Node.js** (v14 or higher)
 - **MongoDB** (v4.4 or higher)
 - **npm** or **yarn**
-- **Docker** and **Docker Compose** (for containerized deployment), or **Podman** with **podman-compose**
 - **Git** (for dependencies installed from git repositories)
-- **8GB+ RAM** allocated to Docker/Podman (required for building)
 
 ### Local Development Setup
 
@@ -308,38 +339,9 @@ GYDE replicated the computational components of a published study that achieved 
 
 GYDE was used to design LRRC15-binding miniproteins for AAV capsid retargeting. The platform integrated BindCraft and RFDiffusion designs, merged experimental binding and VLP yield data, and enabled rapid analysis of sequence-structure-function relationships to identify promising candidates.
 
-## Docker Deployment
+## Documentation
 
-### Software Requirements
-
-- Docker Engine with Docker Buildx and Docker Compose, **or** Podman with podman-compose
-- Git (for dependencies installed from git repositories)
-- At least 8GB of memory allocated to Docker/Podman containers
-
-**Podman Users**: GYDE works with Podman. Install `podman` and `podman-compose`, initialize a machine with sufficient memory (`podman machine init --memory 8192`), then replace `docker compose` with `podman-compose` in the commands below.
-
-### Setup Instructions
-
-1. **Designate an empty directory for Slivka data files and set the environment variable:**
-```bash
-export SLIVKA_DATA_DIR=/path/to/slivka/data
-```
-
-2. **Install Slivka-bio configurations and dependencies:**
-```bash
-docker compose --profile setup run slivka-bio-installer
-```
-   - The `--profile setup` flag is required to access the installer service
-   - Follow the prompts to install services
-   - By default, Docker installation method is used for each service
-   - If prompted, confirm overwriting existing files
-
-3. **Start the GYDE server:**
-```bash
-docker compose up gyde-server
-```
-
-The application will be available at `http://localhost:3030`
+- [Send-to-GYDE Protocol](send-to-gyde/README.md)
 
 ## Development
 
@@ -390,10 +392,6 @@ If you use GYDE in your research, please cite this repository.
 
 
 *Note: Update with actual citation information once the manuscript is published*
-
-## Documentation
-
-- [Send-to-GYDE Protocol](send-to-gyde/README.md)
 
 ## Troubleshooting
 

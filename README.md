@@ -87,12 +87,18 @@ Examples of GYDE integrations with state-of-the-art tools via the Slivka compute
 
 ### Setup Instructions
 
-1. **Designate an empty directory for Slivka data files and set the environment variable:**
+1. **Clone the repository:**
+```bash
+git clone https://github.com/proteinverse/gyde.git
+cd gyde
+```
+
+2. **Designate an empty directory for Slivka data files and set the environment variable:**
 ```bash
 export SLIVKA_DATA_DIR=/path/to/slivka/data
 ```
 
-2. **Install Slivka-bio configurations and dependencies:**
+3. **Install Slivka-bio configurations and dependencies:**
 ```bash
 docker compose --profile setup run slivka-bio-installer
 ```
@@ -101,7 +107,7 @@ docker compose --profile setup run slivka-bio-installer
    - By default, Docker installation method is used for each service
    - If prompted, confirm overwriting existing files
 
-3. **Start the GYDE server:**
+4. **Start the GYDE server:**
 ```bash
 docker compose up gyde-server
 ```
@@ -121,7 +127,7 @@ The application will be available at `http://localhost:3030`
 
 1. **Clone the repository:**
 ```bash
-git clone https://github.com/yourusername/gyde.git
+git clone https://github.com/proteinverse/gyde.git
 cd gyde
 ```
 

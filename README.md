@@ -347,6 +347,11 @@ GYDE was used to design LRRC15-binding miniproteins for AAV capsid retargeting. 
 
 ## Documentation
 
+- HOW TO get started
+
+Expand the "I want to ..." section on the home page and follow along!
+![Getting Started](docs/figures/start.png)
+
 - [Send-to-GYDE Protocol](send-to-gyde/README.md)
 
 ## Development

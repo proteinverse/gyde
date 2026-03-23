@@ -249,6 +249,29 @@ External Tools (AlphaFold, ProteinMPNN, etc.)
 
 **Note**: GYDE supports any OAuth2-based authentication system. Development has primarily used AWS Cognito, but other providers should work.
 
+#### SSL / CA Certificates
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `GYDE_CA_BUNDLE` | Path to a CA certificate bundle (PEM) for outbound HTTPS | *(none)* |
+
+GYDE's Slivka containers make outbound HTTPS requests (e.g. to the ColabFold MSA server at `api.colabfold.com`). On networks that perform SSL inspection (corporate proxies, VPNs), these requests will fail with `CERTIFICATE_VERIFY_FAILED` unless the inspecting CA certificate is trusted.
+
+**If you have a corporate CA certificate**, set `GYDE_CA_BUNDLE` to its path on the host and mount it into the scheduler container. In `docker-compose.yaml`, uncomment the CA bundle volume mount under `slivka-scheduler` and set the environment variable:
+```bash
+export GYDE_CA_BUNDLE=/path/to/corporate-ca-bundle.pem
+```
+Then in `docker-compose.yaml` under `slivka-scheduler.volumes`, uncomment:
+```yaml
+- ${GYDE_CA_BUNDLE}:/certs/ca-bundle.pem:ro
+```
+And update the environment variable to point to the in-container path:
+```yaml
+- GYDE_CA_BUNDLE=/certs/ca-bundle.pem
+```
+
+**If no CA certificate is provided**, SSL verification is automatically disabled for these outbound requests so that structure prediction and other tools that depend on external APIs continue to work.
+
 #### Frontend
 
 | Variable | Description |
@@ -438,6 +461,15 @@ docker exec gyde-mongodb-rs0-1 mongosh gydedb_prd --eval 'db.gyde_jobcache_v2.de
 docker exec gyde-mongodb-rs0-1 mongosh slivka --eval 'db.jobs.deleteMany({}); db.files.deleteMany({})'
 ```
 Replace `docker` with `podman` if using Podman.
+
+**Structure prediction fails with `CERTIFICATE_VERIFY_FAILED`:**
+
+Outbound HTTPS requests to external APIs (e.g. ColabFold MSA server) fail with SSL errors when running behind a corporate proxy that performs SSL inspection. Either provide your corporate CA certificate via `GYDE_CA_BUNDLE` (see [SSL / CA Certificates](#ssl--ca-certificates) above) or, if no certificate is available, rebuild the slivka image — SSL verification is automatically disabled when no CA bundle is found:
+```bash
+docker compose build slivka-server
+docker compose down
+docker compose up gyde-server
+```
 
 **Slivka scheduler fails to connect to MongoDB (Podman):**
 

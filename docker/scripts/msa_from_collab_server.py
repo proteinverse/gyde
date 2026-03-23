@@ -9,10 +9,31 @@ import time
 from typing import Optional, Union, Dict
 
 import requests
+import urllib3
 from requests.auth import HTTPBasicAuth
 from tqdm import tqdm
 
 logger = logging.getLogger(__name__)
+
+
+def _get_ssl_verify():
+    """Determine SSL verification setting.
+
+    Uses the CA bundle at GYDE_CA_BUNDLE / REQUESTS_CA_BUNDLE if the file
+    exists, otherwise disables verification so the script works behind
+    corporate proxies that perform SSL inspection.
+    """
+    for env_var in ("GYDE_CA_BUNDLE", "REQUESTS_CA_BUNDLE", "CURL_CA_BUNDLE"):
+        ca_path = os.environ.get(env_var, "")
+        if ca_path and os.path.isfile(ca_path):
+            logger.info(f"Using CA bundle from {env_var}: {ca_path}")
+            return ca_path
+    logger.warning("No CA bundle found — disabling SSL verification for outbound HTTPS requests")
+    urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+    return False
+
+
+SSL_VERIFY = _get_ssl_verify()
 
 TQDM_BAR_FORMAT = (
     "{l_bar}{bar}| {n_fmt}/{total_fmt} [elapsed: {elapsed} remaining: {remaining}]"
@@ -81,6 +102,7 @@ def run_mmseqs2(  # noqa: PLR0912, D103, C901, PLR0915
                     timeout=6.02,
                     headers=headers,
                     auth=auth,
+                    verify=SSL_VERIFY,
                 )
                 logger.debug(f"MSA submission response status: {res.status_code}")
             except Exception as e:
@@ -110,7 +132,8 @@ def run_mmseqs2(  # noqa: PLR0912, D103, C901, PLR0915
             try:
                 logger.debug(f"Checking MSA job status for ID: {ID}")
                 res = requests.get(
-                    f"{host_url}/ticket/{ID}", timeout=6.02, headers=headers, auth=auth
+                    f"{host_url}/ticket/{ID}", timeout=6.02, headers=headers, auth=auth,
+                    verify=SSL_VERIFY,
                 )
                 logger.debug(f"MSA status check response status: {res.status_code}")
             except Exception as e:
@@ -139,7 +162,8 @@ def run_mmseqs2(  # noqa: PLR0912, D103, C901, PLR0915
             try:
                 logger.debug(f"Downloading MSA results for ID: {ID}")
                 res = requests.get(
-                    f"{host_url}/result/download/{ID}", timeout=6.02, headers=headers, auth=auth
+                    f"{host_url}/result/download/{ID}", timeout=6.02, headers=headers, auth=auth,
+                    verify=SSL_VERIFY,
                 )
                 logger.debug(f"MSA download response status: {res.status_code}")
             except Exception as e:

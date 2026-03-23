@@ -53,6 +53,7 @@ services:
     command: ["slivka", "start", "server", "-t", "gunicorn"]
 
   slivka-scheduler:
+    restart: on-failure
     image: slivka:latest
     build:
       dockerfile: slivka.Dockerfile
@@ -71,9 +72,12 @@ services:
       - DOCKER_HOST=tcp://docker:2376
       - DOCKER_TLS_VERIFY=1
       - DOCKER_CERT_PATH=/certs/client
+      - GYDE_CA_BUNDLE=${GYDE_CA_BUNDLE:-}
     volumes:
       - dind-certs:/certs/client:ro
       - ${SLIVKA_DATA_DIR}:/data/slivka
+      # Optional: mount a corporate CA certificate for SSL verification
+      # - ${GYDE_CA_BUNDLE:-/dev/null}:/certs/ca-bundle.pem:ro
     working_dir: /data/slivka
     command: ["slivka", "start", "scheduler"]
 

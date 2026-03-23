@@ -427,6 +427,26 @@ If you use GYDE in your research, please cite this repository.
 - Check Slivka service configuration
 - Review job logs in Slivka interface
 
+**Stale results after reinstalling Slivka or resetting `SLIVKA_DATA_DIR`:**
+
+If you delete or recreate `SLIVKA_DATA_DIR`, the MongoDB volume still retains cached job records that reference files that no longer exist. This can cause errors such as `Missing response(s) with labels alignment` when running tools like MAFFT. Clear the stale caches:
+```bash
+# Clear GYDE job cache
+docker exec gyde-mongodb-rs0-1 mongosh gydedb_prd --eval 'db.gyde_jobcache_v2.deleteMany({})'
+
+# Clear Slivka job and file records
+docker exec gyde-mongodb-rs0-1 mongosh slivka --eval 'db.jobs.deleteMany({}); db.files.deleteMany({})'
+```
+Replace `docker` with `podman` if using Podman.
+
+**Slivka scheduler fails to connect to MongoDB (Podman):**
+
+On Podman, the Slivka scheduler may fail on startup with `Name does not resolve` errors due to a DNS race condition. The `slivka-scheduler` service in `docker-compose.yaml` includes `restart: on-failure` to handle this automatically. If the issue persists, do a full stack restart:
+```bash
+podman compose down
+podman compose up gyde-server
+```
+
 ## Future Directions
 
 - Integration of Large Language Models (LLMs) for prompt-based access to GYDE capabilities

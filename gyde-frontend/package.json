@@ -25,7 +25,7 @@
     "molstar": "^3.42.0",
     "msa": "^1.0.3",
     "msa-colorschemes": "^1.0.10",
-    "node-sass": "^7.0.1",
+    "sass": "^1.77.0",
     "npyjs": "^0.6.0",
     "openchemlib": "^8.17.0",
     "pako": "^2.0.4",

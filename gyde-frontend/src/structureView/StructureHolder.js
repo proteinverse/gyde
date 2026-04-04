@@ -15,7 +15,7 @@ import {
     atomicMappingsForModel, createMolStarPlugin, Plugin, applyDiffsTheme
 } from './molstar';
 
-import {SlivkaServiceContext, configMapToFormData} from '@csb/czekolada';
+import {SlivkaServiceContext, configMapToFormData} from '../czekolada/lib';
 import {csvFormat} from 'd3-dsv';
 
 import {getProteinOneLetterCode} from 'molstar/lib/mol-model/sequence/constants';

@@ -6,7 +6,7 @@ import { WithTokenService } from './Token';
 import { WithEnvironment } from './Environment';
 import { WithGydeWorkers } from './GydeWorkerService';
 
-import { WithSlivkaService } from '@csb/czekolada';
+import { WithSlivkaService } from './czekolada/lib';
 
 import "./style.scss";
 

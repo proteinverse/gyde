@@ -5,6 +5,27 @@
 ![GYDE Interface](docs/figures/figure1.png)
 *Figure 1: GYDE layout showing the integrated MSA, Structure Viewer and Plotting panel. The selected sequence in the MSA viewer is used for structure visualization and highlighted in the plotting panel.*
 
+## Table of Contents
+
+- [Overview](#overview)
+- [Key Features](#key-features)
+- [Docker Deployment](#docker-deployment)
+- [Local Installation](#local-installation)
+- [Quick Start](#quick-start)
+- [Architecture](#architecture)
+- [Configuration](#configuration)
+- [Usage Examples](#usage-examples)
+- [Use Cases](#use-cases)
+- [Documentation](#documentation)
+- [Development](#development)
+- [Contributing](#contributing)
+- [Citation](#citation)
+- [Troubleshooting](#troubleshooting)
+- [Future Directions](#future-directions)
+- [License](#license)
+- [Acknowledgments](#acknowledgments)
+- [Contact](#contact)
+
 ## Overview 
 
 GYDE addresses the challenge of adopting rapidly evolving computational tools in protein science and drug discovery. The platform provides:
@@ -53,27 +74,6 @@ Examples of GYDE integrations with state-of-the-art tools via the Slivka compute
 - Integration with public databases (PDB, UniProt, Pfam)
 - Session persistence with versioning and access control
 - "Send-to-GYDE" API for programmatic data import
-
-## 📋 Table of Contents
-
-- [Overview](#overview)
-- [Key Features](#key-features)
-- [Installation](#installation)
-- [Quick Start](#quick-start)
-- [Architecture](#architecture)
-- [Configuration](#configuration)
-- [Usage Examples](#usage-examples)
-- [Use Cases](#use-cases)
-- [Docker Deployment](#docker-deployment)
-- [Development](#development)
-- [Contributing](#contributing)
-- [Citation](#citation)
-- [Documentation](#documentation)
-- [Troubleshooting](#troubleshooting)
-- [Future Directions](#future-directions)
-- [License](#license)
-- [Acknowledgments](#acknowledgments)
-- [Contact](#contact)
 
 ## Docker Deployment
 

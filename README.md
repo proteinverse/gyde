@@ -9,9 +9,7 @@
 
 - [Overview](#overview)
 - [Key Features](#key-features)
-- [Docker Deployment](#docker-deployment)
-- [Local Installation](#local-installation)
-- [Quick Start](#quick-start)
+- [Getting Started](#getting-started)
 - [Architecture](#architecture)
 - [Configuration](#configuration)
 - [Usage Examples](#usage-examples)
@@ -75,17 +73,16 @@ Examples of GYDE integrations with state-of-the-art tools via the Slivka compute
 - Session persistence with versioning and access control
 - "Send-to-GYDE" API for programmatic data import
 
-## Docker Deployment
+## Getting Started
 
-### Software Requirements
+### Docker / Podman (Recommended)
 
+**Requirements:**
 - Docker Engine with Docker Buildx and Docker Compose, **or** Podman with podman-compose
 - Git (for dependencies installed from git repositories)
 - At least 8GB of memory allocated to Docker/Podman containers
 
 **Podman Users**: GYDE works with Podman. Install `podman` and `podman-compose`, initialize a machine with sufficient memory (`podman machine init --memory 8192`), then replace `docker compose` with `podman-compose` in the commands below.
-
-### Setup Instructions
 
 1. **Clone the repository:**
 ```bash
@@ -114,16 +111,9 @@ docker compose up gyde-server
 
 The application will be available at `http://localhost:3030`
 
-## Local Installation
+### Local Development
 
-### Prerequisites
-
-- **Node.js** (v14 or higher)
-- **MongoDB** (v4.4 or higher)
-- **npm** or **yarn**
-- **Git** (for dependencies installed from git repositories)
-
-### Local Development Setup
+**Prerequisites:** Node.js (v14+), MongoDB (v4.4+), npm or yarn, Git
 
 1. **Clone the repository:**
 ```bash
@@ -145,23 +135,20 @@ npm install
 
 4. **Set up MongoDB** (ensure MongoDB is running locally or configure connection string)
 
-## Quick Start
-
-### Development Mode
-
-1. **Start the frontend development server:**
+5. **Start the frontend development server:**
 ```bash
-cd gyde-frontend
+cd ../gyde-frontend
 npm start
 ```
+
 The application will be available at `http://localhost:3000`
 
-2. **Optionally, configure Slivka URL:**
+6. **Optionally, configure Slivka URL:**
 ```bash
 export SLIVKA_URL=http://your-slivka-server:4040
 ```
 
-### Production Deployment
+### Production Deployment (without Docker)
 
 1. **Build the frontend:**
 ```bash

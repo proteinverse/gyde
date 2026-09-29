@@ -1,3 +1,6 @@
+import {isTamarindCompute} from '../compute';
+import {designChainInputs} from './designChainInputs';
+import {designPdb} from '../utils/designPdb';
 import React, {useState, useCallback, useMemo, useEffect} from 'react';
 
 import {
@@ -62,18 +65,22 @@ export default function LigandMPNN({
 
             if (!structureData) return;
             let {structureText, format}  = await parseStructureData(structureData);
-            if (format === 'pdb') {
+            if (isTamarindCompute()) {
+                structureText = await designPdb(structureText, format);
+                format = 'pdb';
+            }
+            if (format === 'pdb' && !isTamarindCompute()) {
                 structureText = await pdbToMmCifText('----', structureText);
                 format = 'mmcif';
             }
-            if (format !== 'mmcif') {
+            if (format !== 'mmcif' && format !== 'pdb') {
                 throw Error('Only support mmCIF or PDB inputs');
                 // FIXME run through Mol* parsePDB->pdbToCif
             }
         
             const chains = await getPdbChains(structureText, format);
             setChainData(chains);
-            setStructureDataBlob(new Blob([structureText], {type: 'chemical/x-mmcif'}));
+            setStructureDataBlob(new Blob([structureText], {type: format==='pdb' ? 'chemical/x-pdb' : 'chemical/x-mmcif'}));
             setStructureRaw(structureData);
 
             const mappings = await makeMappings(
@@ -142,13 +149,12 @@ export default function LigandMPNN({
                     }
 
                     const chain = chains[i];                    
-                    const mapping = mappings[i];
                     if (chain) { 
                         for (const cc of chain.split(',')) {
                             designMapping[cc] = Array.from(selectedColumns[i] || [])
                                 .map((n) => gapMap[n])
                                 .filter((n) => n >= 0)
-                                .map((n) => mapping[n])
+                                .map((n) => (chainMappings.mappingsByChain?.[i]?.[cc] || [])[n])
                                 .filter((v) => v?.value)
                                 .map((v) => v.value);
 
@@ -160,6 +166,10 @@ export default function LigandMPNN({
                 }
             }
 
+            if (isTamarindCompute() && (missingColumns || missingMaps)) {
+                return {validation: 'Some selected residues could not be mapped. Adjust the selection before designing.'};
+            }
+
             if (Object.keys(designMapping).length === 0) {
                 for (let i = 0; i < seqColumns.length; ++i) {
                     const chain = chains[i];
@@ -168,7 +178,7 @@ export default function LigandMPNN({
                         warnings.push('No chains mapped to sequence column ' + (seqColumnNames ? seqColumnNames[i] : `Sequence ${i+1}`));
                     } else {
                         for (const cc of chain.split(',')) {
-                            designMapping[cc] = Array.from(mappings[i].filter((v) => v?.value).map((v) => v.value));
+                            designMapping[cc] = Array.from((chainMappings.mappingsByChain?.[i]?.[cc] || []).filter((v) => v?.value).map((v) => v.value));
                         }
                     }
                 }
@@ -237,7 +247,7 @@ export default function LigandMPNN({
 
                 const result = await parseLigandMPNN(slivkaService, status.id, designMapping, chainData);
                 const headerRecord = result[0];
-                const designedChains = Object.keys(chainData);
+                const designedChains = isTamarindCompute() ? JSON.parse(headerRecord.designed_chains) : Object.keys(chainData);
 
                 const seqRefColumns = seqColumns.map((c) => ({...c, column: `_gyde_${c.column}_refseq`}));
                 const refSeqs = headerRecord.seq.split(':');
@@ -348,13 +358,7 @@ export default function LigandMPNN({
 }
 
 async function makeMappings(gydeWorkerService, structureChains, sequences, chains) {
-    const seqByChain = {},
-          residueInfoByChain = {};
-
-    for (const [chain, data] of Object.entries(structureChains)) {
-        seqByChain[chain] = data.mpnnAtomicSequence;
-        residueInfoByChain[chain] = data.mpnnNumbering;
-    }
+    const {sequences:seqByChain,residues:residueInfoByChain} = designChainInputs(structureChains, isTamarindCompute(), false);
 
     const mappings = await makeMappingsGeneric(gydeWorkerService, seqByChain, residueInfoByChain, sequences, chains);
     return mappings;

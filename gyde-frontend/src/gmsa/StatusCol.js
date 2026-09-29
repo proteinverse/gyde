@@ -55,6 +55,8 @@ function StatusCell({data, index, updateSelection, format}) {
                     : undefined }
             </span>
         );
+    } else if (status === 'import_waiting') {
+        content = <span style={{color: '#9a6700'}}>Import pending</span>;
     } else if (status) {
         if (typeof(data) === 'string') {
             message = data;

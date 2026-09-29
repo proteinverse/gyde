@@ -39,7 +39,7 @@ const DEFAULT_DATASET_COMPONENTS = [
 
 const Homepage = (props) => {
     const {onDataLoad: onDataLoadRaw,
-        sessionHistory, sessionHistoryErr, tabs,
+        sessionHistory, sessionHistoryErr, sessionActionErrors, deletingSessions, tabs, refreshHistory,
         loadHistoricalSession, switchToHistoricalSession, deleteHistoricalSession,
         updateShareFlag, updateDescription, updateName, goToTabs,
         extraDatasetComponents=[], idLookups=[], landingPageAddendum
@@ -66,7 +66,10 @@ const Homepage = (props) => {
     }, []);
 
     const isCollapsed = loc.pathname !== '/' && loc.pathname !== '/new';
-    const selectedOption = loc.pathname === '/' ? '/' : loc.pathname === '/datasets' ? 'session' : params.ccc; 
+    const selectedOption = loc.pathname === '/' ? '/' : loc.pathname === '/datasets' ? 'session' : params.ccc;
+    useEffect(() => {
+        if (selectedOption === 'session') refreshHistory?.();
+    }, [selectedOption, refreshHistory]);
 
     return (
         <div style={{display: 'flex', flexDirection: 'column', height: '100vh'}}>
@@ -107,6 +110,8 @@ const Homepage = (props) => {
                 <SessionView 
                     sessionHistory={sessionHistory}
                     sessionHistoryErr={sessionHistoryErr}
+                    sessionActionErrors={sessionActionErrors}
+                    deletingSessions={deletingSessions}
                     tabs={tabs}
                     loadHistoricalSession={loadHistoricalSession}
                     switchToHistoricalSession={switchToHistoricalSession}

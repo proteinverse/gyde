@@ -22,6 +22,8 @@ import {createHash as createHashSHA256} from 'sha256-uint8array';
 import {translateDNA} from './sequence.js';
 
 import OIDC from 'express-openid-connect';
+import {computeConfig, personalAccess} from './integrations/tamarind/config.js';
+const compute = computeConfig();
 
 const {requiresAuth, auth} = OIDC;
 
@@ -30,7 +32,7 @@ const PORT = parseInt(process.env.GYDE_PORT || '3030');
 const TLS_PORT = process.env.GYDE_TLS_PORT ? parseInt(process.env.GYDE_TLS_PORT) : undefined;
 const HOST = process.env.GYDE_HOST || '127.0.0.1';
 const SLIVKA = process.env.GYDE_SLIVKA_URL;
-if (!SLIVKA) {
+if (!SLIVKA && compute.provider === 'slivka') {
     throw Error('You must specify GYDE_SLIVKA_URL');
 }
 const SLIVKA2 = process.env.GYDE_SLIVKA2_URL || SLIVKA;
@@ -101,6 +103,11 @@ const openLogCollection = mongodb.collection(OPEN_COLLECTION_NAME);
 
 
 const app = express();
+if (compute.provider === 'tamarind') app.use(personalAccess(compute));
+app.get('/compute/config', (_req, res) => {
+    res.set('Cache-Control', 'no-store');
+    res.json({provider: compute.provider});
+});
 const memoryStore = new session.MemoryStore();
 
 
@@ -722,6 +729,11 @@ async function requestDigest(formData) {
     return hash;
 }
 
+if (compute.provider === 'tamarind') {
+    const {tamarindRouter} = await import('./integrations/tamarind/router.js');
+    app.use(await tamarindRouter({config: compute, collection: mongodb.collection('gyde_tamarind_jobs')}));
+}
+
 app.post(
     '/api/services/:service/jobs',
     (req, res, next) => {
@@ -1024,6 +1036,7 @@ app.post(
     }
 );
 
+if (compute.provider === 'slivka') {
 app.use(
     '/api',
     proxy.createProxyMiddleware({
@@ -1057,6 +1070,8 @@ app.use(
     })
 );
 
+
+}
 
 app.use(protect, express.static(STATIC_DIR));
 const defaultSPARoute = [

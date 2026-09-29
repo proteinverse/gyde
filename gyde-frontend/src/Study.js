@@ -1,4 +1,7 @@
+import RenameColumn from './RenameColumn';
+import {isTamarindCompute} from './compute';
 import React, {useState, useCallback, useRef, useEffect} from 'react';
+import {canStartAutomaticAlignment} from './workspacePersistence';
 import {
     Grid, LinearProgress, CircularProgress, Button, ButtonGroup, Tooltip, Menu, MenuItem, Paper,
     Dialog, DialogTitle, DialogContent, TextField, DialogActions, FormControl, InputLabel, Select,
@@ -262,6 +265,11 @@ class _Study extends React.Component {
     }
 
     setViewingJob(jobId, explicitURL) {
+        const resultUrl = this.props.slivkaService?.getJobStatus(jobId)?.resultUrl;
+        if (resultUrl && isTamarindCompute()) {
+            window.open(resultUrl, '_blank', 'noopener,noreferrer');
+            return;
+        }
         this.setState({viewingJob: {jobId, explicitURL}});
     }
 
@@ -560,7 +568,7 @@ class _Study extends React.Component {
             const realAlignmentTarget = alignmentTarget?.startsWith('_seed+') ? alignmentTarget.substring(6) : alignmentTarget;
             const target = alignmentTargets?.filter(({name}) => name === realAlignmentTarget)[0] || alignmentTargets?.[0];
             if (target) {
-                this.runNumberingAlignment(target.name, target.aligner, alignmentTarget);
+                this.runNumberingAlignment(target.name, target.aligner, alignmentTarget, target.numberingOnly);
             }
         }
 
@@ -595,10 +603,8 @@ class _Study extends React.Component {
             }
         }
 
-        const msaColumnsStale = this.props.msaColumns
-            && this.props.msaColumns.some(mc => mc && !this.props.columnarData[mc.column]);
-
-        if (this.props.seqColumns.length > 0 && (!this.props.msaColumns || msaColumnsStale) && !this.props.mafftPending && !this.props.specialAlign && this.props.alignmentKey !== 'seqs' && (!this.props.error || msaColumnsStale)) {
+        const hosting = isTamarindCompute();
+        if (canStartAutomaticAlignment(this.props, hosting)) {
             const msaColumns = this.props.seqColumns.map(({column: c}) => {
                 let aliColName = '_gyde_msa_' + c;
                 while (this.props.columnarData[aliColName]) aliColName += 'Z';
@@ -812,14 +818,14 @@ class _Study extends React.Component {
             const realAlignmentTarget = alignmentTarget?.startsWith('_seed+') ? alignmentTarget.substring(6) : alignmentTarget;
             const target = alignmentTargets?.filter(({name}) => name === realAlignmentTarget)[0] || alignmentTargets?.[0];
             if (target) {
-                this.runNumberingAlignment(target.name, target.aligner, alignmentTarget)
+                this.runNumberingAlignment(target.name, target.aligner, alignmentTarget, target.numberingOnly)
             }
         }
 
         window.scrollTo(0, 0);
     }
 
-    async runNumberingAlignment(name, aligner, alignmentKey) {
+    async runNumberingAlignment(name, aligner, alignmentKey, numberingOnly=false) {
         this.setState((oldState) => {
             const update = {
                 storedAlignment: null,
@@ -905,7 +911,7 @@ class _Study extends React.Component {
             let abNumRefColumns;
             const addColumns = {};
 
-            if (!alignmentKey) {
+            if (!alignmentKey || (numberingOnly && alignmentKey !== '_seed')) {
                 abNumRefColumns = undefined;
             } else if (alignmentKey === '_seed') {
                 function extractSeedAlign(align, columnarData, nameColumn, refNameColumn) {
@@ -972,8 +978,8 @@ class _Study extends React.Component {
 
             this.setState((oldState) => {
                 const newDataColumns = [...oldState.dataColumns];
-                if (newDataColumns.indexOf('lineage_heavy') < 0) newDataColumns.push('lineage_heavy');
-                if (newDataColumns.indexOf('lineage_light') < 0) newDataColumns.push('lineage_light');
+                if (germlines.length && newDataColumns.indexOf('lineage_heavy') < 0) newDataColumns.push('lineage_heavy');
+                if (germlines.length && newDataColumns.indexOf('lineage_light') < 0) newDataColumns.push('lineage_light');
 
                 return {
                     columnarData: {
@@ -2893,6 +2899,8 @@ class _Study extends React.Component {
         const dataWidget = (
             <Paper elevation={6} sx={{padding: '1rem'}} ref={this.dataRef}>
                 <WidgetBoundaryWrapper>
+                    <RenameColumn seqColumns={this.props.seqColumns} columns={this.props.dataColumns.filter(column=>!column.startsWith('_gyde_'))} labels={columnDisplayNames}
+                        onRename={(column,name)=>this.setState(old=>({columnDisplayNames:{...old.columnDisplayNames,[column]:name}}))}/>
                     <NavBar
                         showTableMenuOnly
                         columns={ columns }
@@ -3614,11 +3622,11 @@ class _Study extends React.Component {
     referenceOptions = memoize((alignmentTargets, hasSeeds, isAntibody) => {
         const options = [];
         if (isAntibody) {
-            for (const {name} of alignmentTargets) {
+            for (const {name} of alignmentTargets.filter(target => !target.numberingOnly)) {
                 options.push({key: name, name})
             }
             options.push({key: '_seed', name: 'Seeds', disabled: !hasSeeds});
-            for (const {name} of alignmentTargets) {
+            for (const {name} of alignmentTargets.filter(target => !target.numberingOnly)) {
                 options.push({key: `_seed+${name}`, name: `Seed ${name} GL`, disabled: !hasSeeds})
             }
         }

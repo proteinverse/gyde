@@ -1,0 +1,34 @@
+name: Optional compute and UI
+on: [push, pull_request]
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    services:
+      mongodb:
+        image: mongo:7.0
+        ports: ["27017:27017"]
+        options: >-
+          --health-cmd "mongosh --quiet --eval 'db.runCommand({ping:1}).ok'"
+          --health-interval 10s --health-timeout 5s --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            gydesrv/package-lock.json
+            gyde-frontend/package-lock.json
+      - run: npm ci --prefix gydesrv
+      - run: npm ci --prefix gyde-frontend --ignore-scripts
+      - run: npm test --prefix gydesrv
+        env:
+          GYDE_TEST_MONGO_URL: mongodb://127.0.0.1:27017/
+      - run: npm test --prefix gyde-frontend -- --watchAll=false --runInBand
+      - run: npm run build --prefix gyde-frontend
+        env:
+          # Existing webpack dynamic-dependency warnings are not new test failures.
+          CI: "false"
+          NODE_OPTIONS: --max_old_space_size=6144

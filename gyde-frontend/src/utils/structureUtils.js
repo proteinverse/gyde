@@ -84,25 +84,29 @@ export async function makeMappingsGeneric(gydeWorkerService, seqByChain, residue
 
     if (chains) {
         const residueMappings = sequences.map((_) => undefined);
+        const mappingsByChain = sequences.map(() => ({}));
         await Promise.all(
             sequences.map(async (rs, rsi) => {
                 if (chains[rsi]) {
-                    const chain = chains[rsi].split(',')[0],
-                          seq = seqByChain[chain];
-                    if (seq) {
-                        let ali;
-                        if (seq === rs) {
-                            ali = {
-                                score: rs.length * 100,
-                                aliA: seq,
-                                aliB: rs
-                            };
-                        } else {
-                            ali = await gydeWorkerService.align(seq, rs);
-                        }
+                    for (const chain of chains[rsi].split(',')) {
+                        const seq = seqByChain[chain];
+                        if (seq) {
+                            let ali;
+                            if (seq === rs) {
+                                ali = {
+                                    score: rs.length * 100,
+                                    aliA: seq,
+                                    aliB: rs
+                                };
+                            } else {
+                                ali = await gydeWorkerService.align(seq, rs);
+                            }
 
-                        const residues = residueInfoByChain[chain] || [];
-                        residueMappings[rsi] = alignmentToMapping(ali, residues)
+                            const residues = residueInfoByChain[chain] || [];
+                            const mapping = alignmentToMapping(ali, residues);
+                            mappingsByChain[rsi][chain] = mapping;
+                            if (chain === chains[rsi].split(',')[0]) residueMappings[rsi] = mapping;
+                        }
                     }
                 }
             })
@@ -110,7 +114,8 @@ export async function makeMappingsGeneric(gydeWorkerService, seqByChain, residue
 
         return {
             chains,
-            mappings: residueMappings
+            mappings: residueMappings,
+            mappingsByChain
         }
     } else {
         const chainMappingAlignments = sequences.map((_) => []);
@@ -144,10 +149,8 @@ export async function makeMappingsGeneric(gydeWorkerService, seqByChain, residue
                 } 
 
                 if (bestAli.aliA) {
-                    const residues = residueInfoByChain[chains[0]] || [];
-                    const mapping = alignmentToMapping(bestAli, residues);
-
                     for (const auth of chains || []) {
+                        const mapping = alignmentToMapping(bestAli, residueInfoByChain[auth] || []);
                         chainMappingAlignments[bestIndex].push({chain: auth, alignment: bestAli, mapping});
                     }
                 }
@@ -176,7 +179,10 @@ export async function makeMappingsGeneric(gydeWorkerService, seqByChain, residue
         const residueMappings = chainMappingAlignments.map((ml) => (ml.length ? ml[0].mapping : undefined));
         return {
             chains: chainMapping.map((m) => m.length > 0 ? m.join(',') : undefined),
-            mappings: residueMappings
+            mappings: residueMappings,
+            mappingsByChain: chainMappingAlignments.map((ml, i) => Object.fromEntries(
+                ml.filter(entry => chainMapping[i].includes(entry.chain)).map(entry => [entry.chain, entry.mapping])
+            ))
         }
     }
 }

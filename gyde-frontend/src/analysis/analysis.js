@@ -1,3 +1,6 @@
+import {isTamarindCompute} from '../compute';
+import {parseTamarindDesign, tamarindDesignProbabilities} from '../integrations/tamarind/tamarindDesign';
+import {parseTamarindTap} from '../integrations/tamarind/tamarindTap';
 import md5 from 'md5';
 import {csvParse} from 'd3-dsv';
 
@@ -61,6 +64,10 @@ function parseMolDesk(output) {
 export async function therapeuticAntibodyProfiler(ss, hc, lc) {
     const formData = new FormData();
     formData.append('seq', `${hc}/${lc}`);
+    if(isTamarindCompute()) {
+        const [{data}]=await slivka(ss,'tap',formData,[{label:'Tamarind TAP scores',type:'text'}],{useCache:true});
+        return parseTamarindTap(data);
+    }
 
     const results = await slivka(
         ss,
@@ -256,7 +263,7 @@ function* mpnnFastaParse(data, trimAll=false) {
     if (seqLines.length) yield makeSeq();
 }
 
-export async function parseProteinMPNN(ss, jid, designMapping, chainData) {
+export async function parseProteinMPNN(ss, jid, designMapping, chainData, saveProbabilities=false) {
     const MATRIX_LABEL = 'Output per-position probabilities (when save_probs is selected)',
           OUTPUT_LABEL = 'Output design file';
 
@@ -281,6 +288,14 @@ export async function parseProteinMPNN(ss, jid, designMapping, chainData) {
         }
     }
 
+    if (isTamarindCompute()) {
+        const result=parseTamarindDesign(output, chainData, designMapping, '/');
+        if(saveProbabilities) {
+            const [{data}]=await ss.fetch(jid,[{label:'Tamarind probability heatmap',type:'json',required:true}]);
+            result.probs=tamarindDesignProbabilities(data,chainData,designMapping);
+        }
+        return result;
+    }
     const parsedResult = Array.from(mpnnFastaParse(output));
     if (npzBuffer) {
         try {
@@ -366,6 +381,7 @@ export async function parseLigandMPNN(ss, jid, designMapping, chainData) {
         } 
     }
 
+    if (isTamarindCompute()) return parseTamarindDesign(output, chainData, designMapping);
     const parsedResult = Array.from(mpnnFastaParse(output, true));
     return parsedResult;
 }

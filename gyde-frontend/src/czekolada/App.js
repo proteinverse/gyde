@@ -1,3 +1,6 @@
+import {isTamarindCompute} from '../compute';
+import TamarindServiceForm from "../integrations/tamarind/TamarindServiceForm";
+import Styled from './Styled';
 import React, {createContext, useState, useReducer, useEffect, useContext, useCallback, useMemo, useRef} from 'react';
 import {Container, Nav, Navbar, Form, Row, Col, Button, Table} from 'react-bootstrap';
 
@@ -170,7 +173,7 @@ export function AppRoutes() {
 function Hello() {
     return (
         <div>
-            Czekolada is a thin layer around <a href="https://github.com/bartongroup/slivka/">Slivka</a>.
+            {isTamarindCompute() ? <>Compute jobs run on <a href="https://tamarind.bio">Tamarind Bio</a>.</> : 'Compute jobs run on the configured Slivka service.'}
         </div>
     );
 }
@@ -433,7 +436,7 @@ function FileConfigControl({param, value, index, updateServiceConfig, disabled=f
     if (value?._slivkaFile) {
         return (
             <div>
-                Slivka file: <a href={`/media/uploads/${value._slivkaFile}`} download>{value._slivkaFileName || value._slivkaFile}</a>&nbsp;
+                Compute file: <a href={`/media/uploads/${value._slivkaFile}`} download>{value._slivkaFileName || value._slivkaFile}</a>&nbsp;
                 <Button disabled={disabled} onClick={onRemove}>Use another file</Button>
             </div>
         )
@@ -447,10 +450,10 @@ function FileConfigControl({param, value, index, updateServiceConfig, disabled=f
     }
 }
 
-function MultiConfigControl({param, value, updateServiceConfig, isInvalid, Control}) {
+function MultiConfigControl({param, value, updateServiceConfig, isInvalid, Control, disabled=false}) {
     const onAdd = useCallback(() => {
-        updateServiceConfig({key: param.id, value: undefined, index: value.length})
-    }, [updateServiceConfig, value, param])
+        if (!disabled) updateServiceConfig({key: param.id, value: undefined, index: value.length})
+    }, [updateServiceConfig, value, param, disabled])
 
     const controls = [];
     for (let i = 0; i < value.length; ++i) {
@@ -460,6 +463,7 @@ function MultiConfigControl({param, value, updateServiceConfig, isInvalid, Contr
                      index={i}
                      param={param}
                      isInvalid={isInvalid}
+                     disabled={disabled}
                      updateServiceConfig={updateServiceConfig} />
         );
     }
@@ -467,7 +471,7 @@ function MultiConfigControl({param, value, updateServiceConfig, isInvalid, Contr
     return (
         <React.Fragment>
             { controls }
-            <Button onClick={onAdd}>+</Button>
+            <Button disabled={disabled} onClick={onAdd}>+</Button>
         </React.Fragment>
     )
 }
@@ -577,7 +581,7 @@ export function ServiceLauncher({service, ...otherProps}) {
                 );
             } else if (error) {
                 return (
-                    <div style={{color: 'red'}}>Error loading Slivka service definitions</div>
+                    <div style={{color: 'red'}}>Could not load compute tools. Please refresh and try again.</div>
                 );
             } else {
                 return (
@@ -593,7 +597,7 @@ export function ServiceLauncher({service, ...otherProps}) {
     );
 }
 
-function ServiceLauncherImpl({
+export function ServiceLauncherImpl({
     listener,
     parameterCallback,
     service,
@@ -616,6 +620,14 @@ function ServiceLauncherImpl({
     const [submitted, setSubmitted] = useState(false);
     const [jid, setJID] = useState(undefined);
     const [status, setStatus] = useState(undefined);
+    const [jobDetails, setJobDetails] = useState({});
+    const [requestError, setRequestError] = useState('');
+    const [cancelling, setCancelling] = useState(false);
+    const submitLock = useRef(false);
+    const attempt = useRef(0);
+    const terminalAttempt = useRef(null);
+    const [importing, setImporting] = useState(false);
+    const hosted = isTamarindCompute();
 
     const slivka = useSlivka();
     
@@ -628,13 +640,25 @@ function ServiceLauncherImpl({
 
             let err = undefined;
             const value = serviceConfig[param.id]
+            if (hosted && !param.array && ['integer','decimal'].includes(param.type)) {
+                if (value === undefined) {
+                    if (param.required) errors[param.id] = 'Required';
+                } else if (!Number.isFinite(value) || (param.type === 'integer' && !Number.isInteger(value))) {
+                    errors[param.id] = `Must be a valid ${param.type}`;
+                } else if (param.min !== undefined && (param.minExclusive ? value <= param.min : value < param.min)) {
+                    errors[param.id] = `Must be ${param.minExclusive ? '>' : '>='} ${param.min}`;
+                } else if (param.max !== undefined && (param.maxExclusive ? value >= param.max : value > param.max)) {
+                    errors[param.id] = `Must be ${param.maxExclusive ? '<' : '<='} ${param.max}`;
+                }
+                return;
+            }
             if (param.required) {
                 if (param.array) {
                     if (value === undefined || (value instanceof Array && !(value.some((x) => x)))) {
                         err = 'Must provide at least one value';
                     }
                 } else {
-                    if (value === undefined) {
+                    if (value === undefined || value === null || (typeof value === 'string' && !value.trim())) {
                         err = 'Required';
                     } 
                 }
@@ -682,25 +706,42 @@ function ServiceLauncherImpl({
         }
     }, [serviceConfig, errors, parameterCallback]);
 
-    const slListener = useCallback((status) => {
+    const slListener = useCallback(async (status, currentAttempt) => {
+        // Ignore duplicate terminal notifications and late events from an older job.
+        if (currentAttempt !== attempt.current || terminalAttempt.current === currentAttempt) return;
+        if (status?.finished) terminalAttempt.current = currentAttempt;
         setStatus(status?.status);
-        if (status?.id) {
-            setJID(status.id);
+        setJobDetails(previous => ({...previous, ...status}));
+        if (status?.id) setJID(status.id);
+        if (status?.status === 'COMPLETED') setImporting(true);
+        try {
+            await listener?.(status);
+        } catch (err) {
+            if (currentAttempt === attempt.current) setRequestError(err.message || 'Could not process the job results.');
+        } finally {
+            if (status?.finished && currentAttempt === attempt.current) {
+                setImporting(false);
+                setSubmitted(false);
+                submitLock.current = false;
+            }
         }
-
-        if (listener) {
-            listener(status);
-        }
-    }, [listener, setStatus, setJID]);
+    }, [listener]);
 
     const submit = useCallback(() => {
+        if (submitLock.current || validErrors) return;
+        submitLock.current = true;
+        const currentAttempt = ++attempt.current;
         (async () => {
             setSubmitted(true);
+            setRequestError('');
+            setStatus('SUBMITTING');
+            setJobDetails({});
+            setJID(undefined);
 
             const sidecar = configMapToSidecar(service, serviceConfig);
             const augListener = (status) => {
                 if (slListener) {
-                    slListener({...status, _czekolada_sidecar: sidecar});
+                    return slListener({...status, _czekolada_sidecar: sidecar}, currentAttempt);
                 }
             }
 
@@ -712,22 +753,32 @@ function ServiceLauncherImpl({
                     augListener
                 );
             } catch (err) {
-                console.log(err);
+                setRequestError(err.message || String(err));
+                setStatus(undefined);
                 setSubmitted(false);
+                submitLock.current = false;
             } finally {
                 // ...
             }
         })()
-    }, [service, serviceConfig, slListener]);
+    }, [service, serviceConfig, slListener, slivka, slivkaOpts, validErrors]);
 
-    const cancel = useCallback(() => {
-        if (jid) {
-            slivka.cancel(jid);
+    const cancel = useCallback(async () => {
+        if (!jid || cancelling) return;
+        setCancelling(true);
+        setRequestError('');
+        try {
+            await slivka.cancel(jid);
+            setStatus(previous => ['COMPLETED','FAILED','CANCELLED'].includes(previous) ? previous : 'CANCELLING');
+        } catch (err) {
+            setRequestError(err.message || 'Could not cancel the job. Please try again.');
+        } finally {
+            setCancelling(false);
         }
-    }, [jid]);
+    }, [jid, cancelling, slivka]);
 
     function controlForParam(param, value, isInvalid) {
-        const constrained = constrainParams.has(param.id);
+        const constrained = constrainParams.has(param.id) || (hosted && submitted);
 
         let Control;
 
@@ -779,6 +830,17 @@ function ServiceLauncherImpl({
         }
     }
 
+    if (hosted) return <TamarindServiceForm
+        parameters={service.parameters.filter(param => !hideParams.has(param.id))}
+        config={serviceConfig} errors={errors} update={updateServiceConfig}
+        disabled={param => submitted || constrainParams.has(param.id)}
+        fallback={(param, value, invalid) => <Styled>{controlForParam(param, value, invalid)}</Styled>}
+        status={status} submitted={submitted} importing={importing} resultUrl={jobDetails.resultUrl} error={requestError || (status === 'FAILED' ? jobDetails.message : '')}
+        submit={submit} cancel={cancel} cancelling={cancelling}
+        canCancel={!!jid && submitted && !jobDetails.finished}
+        canSubmit={!validErrors && !submitted && !cancelling}
+        showSubmitButton={showSubmitButton} />;
+
     return (
         <React.Fragment>
             <Form>
@@ -805,6 +867,7 @@ function ServiceLauncherImpl({
                 })}
             </Form>
 
+            {requestError && <div role="alert" style={{color: 'red'}}>{requestError}</div>}
             <Row>
                 { showSubmitButton
                   ? <Col sm={3}>
@@ -911,6 +974,8 @@ export function JobView({jobId, explicitURL, ...props}) {
 
     if (!jobStatus) {
         return (<div>Loading...</div>)
+    } else if (isTamarindCompute() && jobStatus.resultUrl) {
+        return <a href={jobStatus.resultUrl} target="_blank" rel="noopener noreferrer">View results in Tamarind Bio</a>;
     } else {
         return (
             <JobViewImpl status={jobStatus}

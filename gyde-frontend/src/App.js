@@ -12,7 +12,7 @@ import { Dialog, DialogTitle } from '@mui/material';
 import { ThemeProvider } from '@mui/material/styles'
 import gtheme from './theme'
 
-import { absolveProtZoo, absolveProtPid } from './analysis/alignment.js';
+import { absolveProtZoo, absolveProtPid, anarci } from './analysis/alignment.js';
 import { loadSpreadsheet, convertToJson } from './utils/loaders.js';
 import { makeSaveableTabState, hydrateTabState } from './session.js';
 import { HeatmapData } from './gmsa/HeatmapUtils.js';
@@ -20,8 +20,10 @@ import { LAYOUT, STRUCTURE_KEYS } from './utils/constants.js';
 
 import {SlivkaServiceContext} from './czekolada/lib';
 import memoize from 'memoize-one';
+import {isTamarindCompute} from './compute';
+import {requestError} from './czekolada/requestErrors';
 
-class _App extends React.Component {
+export class _App extends React.Component {
     static defaultProps = {
         // in "Kabat" numbers.  Kabat definition from http://www.bioinf.org.uk/abs/info.html
         cdrPos: {
@@ -113,6 +115,12 @@ class _App extends React.Component {
         ]),
 
         alignmentTargets: [
+            ...(isTamarindCompute() ? [{
+                name: 'ANARCI',
+                aligner: (service, sequences, options) => anarci(service, sequences, 'kabat', options),
+                gateOnService: 'anarci',
+                numberingOnly: true,
+            }] : []),
             /*
             {
                 name: 'Human (score)',
@@ -159,8 +167,12 @@ class _App extends React.Component {
         }
 
         this.saving = false;
+        this.loadingWorkspaces = new Set();
+        this.deletingWorkspaces = new Set();
+        this.deletedWorkspaces = new Set();
 
         this.onDataLoad = this.onDataLoad.bind(this);
+        this.loadHistory = this.loadHistory.bind(this);
         this.loadHistoricalSession = this.loadHistoricalSession.bind(this);
         this.switchToHistoricalSession = this.switchToHistoricalSession.bind(this);
         this.deleteHistoricalSession = this.deleteHistoricalSession.bind(this);
@@ -580,7 +592,7 @@ class _App extends React.Component {
             const resp = await fetch('/store');
             if (!resp.ok) throw Error(resp.statusText);
             const data = await resp.json();
-            this.setState({sessionHistory: data});
+            this.setState({sessionHistory: data.filter(s => !this.deletedWorkspaces.has(s.id)), sessionHistoryErr: null});
         } catch (err) {
             console.log(err);
             this.setState({sessionHistoryErr: err});
@@ -618,6 +630,9 @@ class _App extends React.Component {
                 onDataLoad={this.onDataLoad}
                 sessionHistory={this.state.sessionHistory}
                 sessionHistoryErr={this.state.sessionHistoryErr}
+                sessionActionErrors={this.state.sessionActionErrors}
+                deletingSessions={this.state.deletingSessions}
+                refreshHistory={this.loadHistory}
                 tabs={this.state.tabs}
                 loadHistoricalSession={this.loadHistoricalSession}
                 switchToHistoricalSession={this.switchToHistoricalSession}
@@ -796,9 +811,12 @@ class _App extends React.Component {
     }
 
     async loadHistoricalSession(sid) {
-        this.setState({
+        if (this.deletedWorkspaces.has(sid) || this.deletingWorkspaces.has(sid) || this.loadingWorkspaces.has(sid) || this.state.tabs.some((t) => t._external_id === sid)) return;
+        this.loadingWorkspaces.add(sid);
+        this.setState((state) => ({
             loadingSession: true,
-        });
+            loadFailures: {...state.loadFailures, [sid]: undefined}
+        }));
 
         try {
             const resp = await fetch(`/store/${sid}`);
@@ -824,6 +842,7 @@ class _App extends React.Component {
             tabData.layout = tabLayout;
 
             this.setState((oldState) => {
+                if (this.deletedWorkspaces.has(sid)) return null;
                 const transitionID = oldState.transitionID + 1;
                 const transition = {
                     transitionID,
@@ -839,8 +858,9 @@ class _App extends React.Component {
                 }
 
                 return transition;
-            }); 
+            }, () => this.loadingWorkspaces.delete(sid));
         } catch (err) {
+            this.loadingWorkspaces.delete(sid);
             console.log(err);
             this.setState((oldState) => ({
                 loadFailures: {
@@ -870,14 +890,40 @@ class _App extends React.Component {
     }
 
     async deleteHistoricalSession(sid) {
+        if (!sid || this.deletingWorkspaces.has(sid) || this.deletedWorkspaces.has(sid)) return;
+        this.deletingWorkspaces.add(sid);
+        this.setState(oldState => ({deletingSessions: [...this.deletingWorkspaces],
+            sessionActionErrors: {...oldState.sessionActionErrors, [sid]: undefined}}));
+        const removeFromView = () => {
+            this.deletedWorkspaces.add(sid);
+
+            this.setState((oldState) => ({
+                sessionHistory: (oldState.sessionHistory || []).filter((s) => s.id !== sid),
+                tabs: oldState.tabs.filter((t) => t._external_id !== sid),
+                sessionActionErrors: {...oldState.sessionActionErrors, [sid]: undefined},
+            }));
+        };
         try {
             const resp = await fetch(`/store/${sid}`, {method: 'DELETE'});
-            if (!resp.ok) throw Error(resp.statusText);
-            this.setState((oldState) => ({
-                sessionHistory: oldState.sessionHistory.filter((s) => s.id !== sid)
-            }));
+            if (!resp.ok) throw Error(await requestError(resp, 'Could not delete dataset'));
+            removeFromView();
         } catch (err) {
-            window.alert(err.message || err);
+            // A connection can fail after the server commits the delete. Reconcile
+            // against the authorized list; never repeat a destructive request.
+            let absent = false;
+            try {
+                const resp = await fetch('/store');
+                if (resp.ok) {
+                    const rows = await resp.json();
+                    absent = Array.isArray(rows) && !rows.some(row => row.id === sid);
+                }
+            } catch {}
+            if (absent) removeFromView();
+            else this.setState(oldState => ({sessionActionErrors: {...oldState.sessionActionErrors,
+                [sid]: err?.message || 'Could not confirm deletion. Refresh the dataset list and try again.'}}));
+        } finally {
+            this.deletingWorkspaces.delete(sid);
+            this.setState({deletingSessions: [...this.deletingWorkspaces]});
         }
     }
 
@@ -983,11 +1029,11 @@ class _App extends React.Component {
     }
 
     getAlignmentTargets() {
-        return this._getAlignmentTargets(this.props.alignmentTargets, this.props.slivkaService);
+        return this._getAlignmentTargets(this.props.alignmentTargets, this.props.slivkaService?.services);
     }
 
-    _getAlignmentTargets = memoize((alignmentTargets, slivkaService) => {
-        const availableServices = new Set((slivkaService?.services || []).map((s) => s.id));
+    _getAlignmentTargets = memoize((alignmentTargets, services) => {
+        const availableServices = new Set((services || []).map((s) => s.id));
 
         return (alignmentTargets || []).filter(({gateOnService: gos}) => !gos || availableServices.has(gos));
     });

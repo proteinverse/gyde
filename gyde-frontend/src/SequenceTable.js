@@ -205,7 +205,7 @@ function SequenceTable(props, ref) {
                 const result = {};
 
                 if (s?._gyde_analysis === 'pending') {
-                    result.status = false;
+                    result.status = s._gyde_import_paused ? 'import_waiting' : false;
                     if (s?._gyde_message) {
                         result.message =  s?._gyde_message;
                     }
@@ -223,7 +223,7 @@ function SequenceTable(props, ref) {
                 }
 
                 const jid = s?._gyde_job_id || s?._gyde_msa_job_id;
-                if (jid && cancelSlivkaJob && s?._gyde_analysis === 'pending') {
+                if (jid && cancelSlivkaJob && s?._gyde_analysis === 'pending' && !s._gyde_compute_complete) {
                     result.onCancel = () => {cancelSlivkaJob(jid)};
                 }
 

@@ -22,6 +22,16 @@ class TAPPlot extends React.Component {
                marginLeft, marginRight, marginBottom, marginTop} = this.props;
         if (!plotData) return (<div>Nothing here</div>);
 
+        if (plotData.tamarindMetric) {
+            const {name,value,flag}=plotData.tamarindMetric;
+            return <div style={{padding:16}}>
+                <strong>{name}</strong>
+                <div style={{fontSize:24,margin:'8px 0'}}>{Number(value.toPrecision(5))}</div>
+                {flag && <div>{flag}</div>}
+                <small>TAP2-aligned developability score from Tamarind.</small>
+            </div>;
+        }
+
         const width = (this.props.dynamicWidth && this.props.width) ? this.props.width - marginLeft - marginRight: this.props.plotWidth,
               height = (this.props.dynamicHeight && this.props.height) ? this.props.height - marginTop - marginBottom : this.props.plotHeight;
 

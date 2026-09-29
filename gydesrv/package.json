@@ -6,7 +6,9 @@
   "bin": {
     "gydesrv": "./index.js"
   },
-  "scripts": {},
+  "scripts": {
+    "test": "node --test test/*.test.js"
+  },
   "author": "",
   "type": "module",
   "dependencies": {
@@ -20,6 +22,10 @@
     "multiparty": "^4.2.3",
     "node-fetch": "^3.3.2",
     "sha256-uint8array": "^0.10.7",
-    "uuid": "^9.0.0"
+    "uuid": "^9.0.0",
+    "busboy": "^1.6.0"
+  },
+  "engines": {
+    "node": ">=22"
   }
 }

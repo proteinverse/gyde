@@ -87,6 +87,8 @@
   "devDependencies": {
     "@babel/cli": "^7.28.0",
     "@craco/craco": "^7.1.0",
+    "@types/react": "^18.3.31",
+    "@types/react-dom": "^18.3.7",
     "babel-plugin-preval": "^5.1.0",
     "crypto-browserify": "^3.12.0",
     "http-proxy-middleware": "^2.0.4",

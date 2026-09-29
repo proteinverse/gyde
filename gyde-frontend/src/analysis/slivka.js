@@ -16,7 +16,7 @@ export default function slivka(slivkaService, serviceName, formData, wantedFiles
             } else if (status?.finished) {
                 reject(`Job did not complete, status=${status?.status || 'UNKNOWN'}`);
             }
-        });
+        }).catch(reject);
     });
 
 }

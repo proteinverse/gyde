@@ -1,6 +1,9 @@
+import {isTamarindCompute} from '../compute';
+import {parseAnarciCsv} from '../integrations/tamarind/tamarindAnarci';
 import * as MSA from 'msa';
 
 import slivka from './slivka.js';
+import { trivialAlignment } from './trivialAlignment.js';
 
 function fastaBlob(sequences) {
     return new Blob(
@@ -11,8 +14,9 @@ function fastaBlob(sequences) {
     );
 }
 
-export async function mafftAlign(slivkaService, sequences) {
-    if (!sequences.length) return [];
+export async function mafftAlign(slivkaService, sequences, options = {}) {
+    const trivial = trivialAlignment(sequences);
+    if (trivial !== null) return trivial;
 
     const fasta = fastaBlob(sequences)
 
@@ -21,13 +25,33 @@ export async function mafftAlign(slivkaService, sequences) {
     formData.append('part-tree', 'parttree');
     formData.append('sequence-type', 'amino acid');
 
-    const [{data}] = await slivka(slivkaService, 'mafft-7.475', formData, [{label: 'alignment', type: 'text'}], true);
+    const [{data}] = await slivka(slivkaService, 'mafft-7.475', formData, [{label: 'alignment', type: 'text'}], {useCache: true, ...options});
     const alignment = MSA.io.fasta.parse(data);
     alignment.residueNumbers = alignment[0].seq.split('').map((_, i) => (i + 1).toString());
     return alignment;
 }
 
 export async function anarci(slivkaService, sequences, scheme='imgt') {
+    if (isTamarindCompute()) {
+        const results=[];
+        // Keep submission fan-out bounded. Each Tamarind ANARCI job accepts one
+        // sequence; retain caller names rather than the runner's generated ID.
+        for (const sequence of sequences) {
+            const form=new FormData();
+            form.append('input',fastaBlob([sequence]),'input.fa');
+            form.append('scheme',scheme);
+            const files=await slivka(slivkaService,'anarci',form,
+                [{label:'Numbering CSV',type:'text',required:false}],{useCache:true});
+            const numbered=files.flatMap(({data})=>parseAnarciCsv(data,sequence));
+            if(numbered.length!==1) throw Error(`ANARCI requires one recognized antibody domain for ${sequence.name}.`);
+            const expected=sequence.name.endsWith('_heavy') ? 'H' : sequence.name.endsWith('_light') ? 'L' : null;
+            if(expected && numbered[0].alignment.some(position=>position.chainName!==expected)) {
+                throw Error(`The sequence in ${sequence.name} does not match its antibody chain type.`);
+            }
+            results.push(...numbered);
+        }
+        return results;
+    }
     const fasta = fastaBlob(sequences)
 
     const formData = new FormData()
@@ -154,7 +178,7 @@ export function anarciMakeAlign(results) {
     const globalResidueNumbers = [];
     for (let pos = 1; pos <= maxPos; ++pos) {
         globalResidueNumbers.push(pos.toString());
-        const inserts = [...insertsByPos[pos]];
+        const inserts = [...(insertsByPos[pos] || [])];
         inserts.sort();
         for (const i of inserts) {
             globalResidueNumbers.push(pos.toString() + i);

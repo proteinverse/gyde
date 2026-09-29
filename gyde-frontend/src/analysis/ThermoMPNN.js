@@ -1,5 +1,7 @@
+import {isTamarindCompute} from '../compute';
+import {TamarindThermoMPNNDialog} from '../integrations/tamarind/TamarindThermoMPNN';
 import React, {useState} from 'react';
-import { 
+import {
     Button, Dialog, DialogActions, DialogContent, DialogTitle, IconButton, Stack, TextField, Table,
     TableContainer, TableRow, TableBody, TableCell, TableHead, Divider, MenuItem, LinearProgress,
     Switch, Input
@@ -14,9 +16,9 @@ import slivka from './slivka.js';
 import { usePinger } from '../Pinger';
 import { parseStructureData } from '../structureView/utils';
 
-import { useSlivka } from '../czekolada/lib'; 
+import { useSlivka } from '../czekolada/lib';
 
-export const ThermoMPNNDialog = (props) => {
+const SlivkaThermoMPNNDialog = (props) => {
     const { open, onClose, passedProps } = props;
     const {
         columnarData, soloSelection, structureKeys, onDataLoad
@@ -34,7 +36,7 @@ export const ThermoMPNNDialog = (props) => {
     const [analysisStatus, setAnalysisStatus] = useState(null);
     const [chainData, setChainData] = useState(null);
     const [chain, setChain] = useState('');
-    
+
     const availStructureKeys = structureKeys.filter((k) => !!columnarData[k] && !!columnarData[k][soloSelection]);
     const [structureKey, setStructureKey] = useState(null);
 
@@ -64,7 +66,7 @@ export const ThermoMPNNDialog = (props) => {
             }
 
             setStructureKey(key);
-        
+
             const chains = await getPdbChains(structureText);
 
             setChainData(chains);
@@ -92,7 +94,7 @@ export const ThermoMPNNDialog = (props) => {
 
             const formData = new FormData();
             const structureBlob = new Blob([structureDataBlob], {type: 'chemical/x-pdb'});
-            
+
             formData.append('input', structureBlob, 'input.pdb');
             formData.append('chain', chain);
 
@@ -280,7 +282,7 @@ export const ThermoMPNNDialog = (props) => {
                         />
                     </Stack>
                     <Stack direction='row' gap='10px' alignItems={'center'}>
-                        <div 
+                        <div
                             style={{userSelect: 'none', opacity: useAllResults? '100%' : '30%'}}
                         >
                             All results
@@ -288,8 +290,8 @@ export const ThermoMPNNDialog = (props) => {
                         <Switch
                             checked={!useAllResults}
                             onChange={() => setUseAllResults(!useAllResults)}/>
-                        <div 
-                            style={{userSelect: 'none', opacity: useAllResults? '30%' : '100%'}} 
+                        <div
+                            style={{userSelect: 'none', opacity: useAllResults? '30%' : '100%'}}
                         >
                             top
                         </div>
@@ -308,7 +310,7 @@ export const ThermoMPNNDialog = (props) => {
                 </React.Fragment>
                 : null
                 }
-                { dataErr ? 
+                { dataErr ?
                     <div style={{color: 'red'}}>
                         { dataErr }
                     </div>
@@ -332,7 +334,7 @@ export const ThermoMPNNDialog = (props) => {
                         </div>
                         <LinearProgress />
                     </div>
-                    : null 
+                    : null
                 }
             </DialogContent>
 
@@ -350,4 +352,8 @@ export const ThermoMPNNDialog = (props) => {
             </DialogActions>
         </Dialog>
     )
+}
+
+export function ThermoMPNNDialog(props) {
+    return isTamarindCompute() ? <TamarindThermoMPNNDialog {...props}/> : <SlivkaThermoMPNNDialog {...props}/>;
 }

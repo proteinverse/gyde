@@ -105,6 +105,10 @@ export function urlToStructureType(url) {
     if (name?.endsWith('.cif') || name?.endsWith('.mmcif')) return 'mmcif';
 }
 
+export function decodeStructureBytes(bytes) {
+    return bytes[0] === 0x1f && bytes[1] === 0x8b ? gunzipSync(bytes) : bytes;
+}
+
 export async function parseStructureData(structureData, progressCallback) {
     let structureText;
     let format = 'pdb';
@@ -137,7 +141,7 @@ export async function parseStructureData(structureData, progressCallback) {
             }
 
         }
-        throw Error('Could not fetch structure: ' + baseResponse.statusText)
+        throw Error('Could not fetch structure (HTTP ' + baseResponse.status + '). The file may be unavailable; retry the import or attach a structure.')
     }
 
     const contentLength = baseResponse.headers.get('content-length') && parseInt(baseResponse.headers.get('content-length'));
@@ -172,7 +176,7 @@ export async function parseStructureData(structureData, progressCallback) {
 
     if (name?.endsWith('.gz')) {
         const structureZipped = await response.arrayBuffer();
-        const decompress  = gunzipSync(new Uint8Array(structureZipped));
+        const decompress = decodeStructureBytes(new Uint8Array(structureZipped));
         structureText = strFromU8(decompress);
         name = name.substring(0, name.length - 3);
     } else {
@@ -233,6 +237,13 @@ export async function getStructureBlob(structureData) {
     }
     if (result.response.status === 304 || !result.blob.size) {
         throw Error('Could not fetch structure: empty response');
+    }
+    if (/\.gz(?:[?#]|$)/i.test(url)) {
+        const bytes = new Uint8Array(await result.blob.arrayBuffer());
+        // HTTP Content-Encoding may already have decompressed the response.
+        const data = decodeStructureBytes(bytes);
+        const type = {mmcif:'chemical/x-mmcif',sdf:'chemical/x-mdl-molfile'}[urlToStructureType(url)] || 'chemical/x-pdb';
+        return new Blob([data], {type});
     }
     return result.blob;
 }

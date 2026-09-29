@@ -1,3 +1,6 @@
+import {isTamarindCompute} from '../compute';
+import {designChainInputs} from './designChainInputs';
+import {designPdb} from '../utils/designPdb';
 import React, {useState, useCallback, useMemo, useEffect} from 'react';
 
 import {
@@ -45,6 +48,8 @@ export function MPNNControls({
     const [chainData, setChainData] = useState(null);
     const [chainMappings, setChainMappings] = useState(undefined);
 
+    const [mpnnParameters, setMpnnParameters] = useState({});
+    const updateParameters = useCallback(params => setMpnnParameters(params), []);
     const [running, setRunning] = useState(false);
     const [jobStatus, setJobStatus] = useState();
 
@@ -65,7 +70,11 @@ export function MPNNControls({
             const structureData = columnarData[key][soloSelection];
 
             if (!structureData) return;
-            const {structureText, format}  = await parseStructureData(structureData);
+            let {structureText, format}  = await parseStructureData(structureData);
+            if (isTamarindCompute()) {
+                structureText = await designPdb(structureText, format);
+                format = 'pdb';
+            }
             if (format !== 'pdb') {
                 throw Error('Only support PDB inputs for now');
             }
@@ -141,13 +150,12 @@ export function MPNNControls({
                     }
 
                     const chain = chains[i];                    
-                    const mapping = mappings[i];
                     if (chain) { 
                         for (const cc of chain.split(',')) {
                             designMapping[cc] = Array.from(selectedColumns[i])
                                 .map((n) => gapMap[n])
                                 .filter((n) => n >= 0)
-                                .map((n) => mapping[n])
+                                .map((n) => (chainMappings.mappingsByChain?.[i]?.[cc] || [])[n])
                                 .filter((v) => v?.value)
                                 .map((v) => v.value);
 
@@ -159,6 +167,10 @@ export function MPNNControls({
                 }
             }
 
+            if (isTamarindCompute() && (missingColumns || missingMaps)) {
+                return {validation: 'Some selected residues could not be mapped. Adjust the selection before designing.'};
+            }
+
             if (Object.keys(designMapping).length === 0) {
                 for (let i = 0; i < seqColumns.length; ++i) {
                     const chain = chains[i];
@@ -167,7 +179,7 @@ export function MPNNControls({
                         warnings.push('No chains mapped to sequence column ' + (seqColumnNames ? seqColumnNames[i] : `Sequence ${i+1}`));
                     } else {
                         for (const cc of chain.split(',')) {
-                            designMapping[cc] = Array.from(mappings[i].filter((v) => v?.value).map((v) => v.value));
+                            designMapping[cc] = Array.from((chainMappings.mappingsByChain?.[i]?.[cc] || []).filter((v) => v?.value).map((v) => v.value));
                         }
                     }
                 }
@@ -221,7 +233,7 @@ export function MPNNControls({
     let unwatch = undefined;
 
     const updateJobStatus = useCallback(async (status) => {
-        setRunning(!status.finished);
+        setRunning(!status.finished || status.status === 'COMPLETED');
         setJobStatus(status.status);
 
         if (status.status === 'COMPLETED') {
@@ -229,7 +241,7 @@ export function MPNNControls({
                 const sequenceData = {};
                 seqColumns.forEach((col) => sequenceData[col.column] = columnarData[col.column][selectedItem]);
 
-                const result = await parseProteinMPNN(slivkaService, status.id, designMapping, chainData);
+                const result = await parseProteinMPNN(slivkaService, status.id, designMapping, chainData, mpnnParameters?.save_probs === true);
                 const headerRecord = result[0];
                 const designedChains = JSON.parse(headerRecord.designed_chains.replace(/'/g, '"'));
 
@@ -244,7 +256,7 @@ export function MPNNControls({
                         structure_chains: chainMappings.chains.map((c) => c ? c.split(',')[0] : undefined),
                         [nameColumn]: sample ? 'mpnn_sample_' + sample : 'reference',
                         seqid: sample ? 'mpnn_sample_' + sample : 'reference',
-                        score: resultProps.score,
+                        ...(isTamarindCompute() ? {overall_confidence: resultProps.overall_confidence} : {score:resultProps.score}),
                         global_score: resultProps.global_score,
                         seq_recovery: resultProps.seq_recovery,
                     };
@@ -261,7 +273,7 @@ export function MPNNControls({
                     
                     return record;
                 });
-                addData.columns = ['score', 'global_score', 'seq_recovery'];
+                addData.columns = isTamarindCompute() ? ['overall_confidence','seq_recovery'] : ['score', 'global_score', 'seq_recovery'];
 
                 const otherData = {};
                 const probs = result.probs ? chainMappings.chains.map((chain) => result.probs[chain ? chain.split(',')[0]: undefined]) : undefined;
@@ -287,17 +299,18 @@ export function MPNNControls({
                     ...otherData
 
                 });
-            } catch(err) {
-                console.log(err);
-            } finally {
                 onHide();
+            } catch(err) {
+                setDataErr(err.message || String(err));
+            } finally {
+                setRunning(false);
             }
         } 
-    }, [structureBlob, structureRaw, pinger, designChains, designMapping, chainMappings]);
+    }, [structureBlob, structureRaw, pinger, designChains, designMapping, chainMappings, mpnnParameters, chainData]);
 
     if (!mpnnService) {
         return (
-            <Dialog open={show} onClose={onHide} aria-labelledby="mpnn-dialog-title">
+            <Dialog open={show} onClose={onHide} fullWidth maxWidth="sm" keepMounted={isTamarindCompute()} aria-labelledby="mpnn-dialog-title">
                 <DialogTitle id="mpnn-dialog-title">
                     Design variants with ProteinMPNN
                 </DialogTitle>
@@ -308,7 +321,7 @@ export function MPNNControls({
 
 
     return (
-        <Dialog open={show} onClose={onHide} aria-labelledby="mpnn-dialog-title">
+        <Dialog open={show} onClose={onHide} fullWidth maxWidth="sm" keepMounted={isTamarindCompute()} aria-labelledby="mpnn-dialog-title">
             <DialogTitle id="mpnn-dialog-title">
                 Design variants with ProteinMPNN
             </DialogTitle>
@@ -325,6 +338,7 @@ export function MPNNControls({
                     value={structureKey ? structureKey : ''}
                     style={{width: '12rem'}}
                     margin='normal'
+                    disabled={running}
                     select
                     onChange={(ev) => selectStructure(ev.target.value)}
                 >
@@ -346,24 +360,22 @@ export function MPNNControls({
                                              constrainParams={["input", "chains_to_design", "design_positions"]}
                                              hideParams={["input", "chains_to_design", "design_positions"]}
                                              listener={updateJobStatus}
+                                             parameterCallback={updateParameters}
                                              slivkaOpts={{useCache: false}} 
                                              showProgress /> 
                         </div> }
 
             </DialogContent>
+            {isTamarindCompute() && <DialogActions>
+                <Button onClick={onHide}>Close</Button>
+            </DialogActions>}
         </Dialog>
     )
 
 }
 
 async function makeMappings(gydeWorkerService, structureChains, sequences, chains) {
-    const seqByChain = {},
-          residueInfoByChain = {};
-
-    for (const [chain, data] of Object.entries(structureChains)) {
-        seqByChain[chain] = data.mpnnAtomicSequence;
-        residueInfoByChain[chain] = data.mpnnNumbering.map((_, i) => i + 1);
-    }
+    const {sequences:seqByChain,residues:residueInfoByChain} = designChainInputs(structureChains, isTamarindCompute(), true);
 
     const mappings = await makeMappingsGeneric(gydeWorkerService, seqByChain, residueInfoByChain, sequences, chains);
     return mappings;

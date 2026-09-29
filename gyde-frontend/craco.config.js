@@ -1,6 +1,11 @@
 const webpack = require('webpack');
 
 module.exports = {
+    jest: {configure: config => {
+        config.transformIgnorePatterns = config.transformIgnorePatterns.map(pattern =>
+            pattern.includes('node_modules') ? '/node_modules/(?!(?:d3-dsv|molstar)/)' : pattern);
+        return config;
+    }},
     eslint: {
       enable: false
     }, 

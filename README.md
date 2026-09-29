@@ -75,6 +75,11 @@ Examples of GYDE integrations with state-of-the-art tools via the Slivka compute
 
 ## Getting Started
 
+For a personal installation using your own Tamarind API key instead of local
+Slivka compute, see [Optional Tamarind compute](docs/optional-tamarind-compute.md).
+It is disabled by default, stores the key only on the local backend, and requires
+no Tamarind-specific frontend build or additional login.
+
 ### Docker / Podman (Recommended)
 
 **Requirements:**
@@ -113,7 +118,7 @@ The application will be available at `http://localhost:3030`
 
 ### Local Development
 
-**Prerequisites:** Node.js (v14+), MongoDB (v4.4+), npm or yarn, Git
+**Prerequisites:** Node.js (v22+), MongoDB (v4.4+), npm or yarn, Git
 
 1. **Clone the repository:**
 ```bash

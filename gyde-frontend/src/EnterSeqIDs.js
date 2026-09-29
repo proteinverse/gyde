@@ -1,3 +1,4 @@
+import {mapUniProtEntry} from "./utils/alphaFold";
 import React, {useState, useReducer, useCallback, useRef, useMemo, useEffect} from 'react'
 
 import { TextField, Button, ButtonGroup, Grid, FormControlLabel, FormControl, InputLabel, MenuItem, Select, Checkbox } from '@mui/material';
@@ -31,16 +32,6 @@ const menuItemStyle = {
     }
 };
 
-function mapUniProtEntry(ent) {
-    return  {
-        sequence: ent.sequence?.value,
-        otherData: {
-            primary_accession: ent.primaryAccession,
-            structure_url: `https://alphafold.ebi.ac.uk/files/AF-${ent.primaryAccession}-F1-model_v4.cif`
-        }
-    }
-}
-
 function fetchUniprotAccessions(ids, update) {
     ids.forEach(async (id) => {
         const url = `https://rest.uniprot.org/uniprotkb/search?query=accession:${id}+OR+sec_acc:${id}`;
@@ -51,7 +42,7 @@ function fetchUniprotAccessions(ids, update) {
             const data = await resp.json(); 
             for (const r of data.results) {
                 if (r.sequence?.value) {
-                    update(id, mapUniProtEntry(r));
+                    update(id, await mapUniProtEntry(r));
                     return;
                 }
             }
@@ -70,7 +61,7 @@ function fetchUniprotEntryNames(ids, update) {
             const data = await resp.json(); 
             for (const r of data.results) {
                 if (r.uniProtkbId === id && r.sequence?.value) {
-                    update(id, mapUniProtEntry(r));
+                    update(id, await mapUniProtEntry(r));
                     return;
                 }
             }

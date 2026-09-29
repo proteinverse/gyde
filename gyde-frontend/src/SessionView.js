@@ -4,7 +4,7 @@ import {DateTime} from 'luxon';
 import {useNavigate} from 'react-router';
 
 import {Button, ButtonGroup, Table, TableHead, TableBody, TableRow, TableCell, Tooltip, TextField, MenuItem,
-    CircularProgress, Menu, Grid } from '@mui/material';
+    CircularProgress, Menu, Grid, Alert } from '@mui/material';
 import LinkIcon from '@mui/icons-material/Link';
 import DeleteIcon from '@mui/icons-material/Delete';
 import FileOpenIcon from '@mui/icons-material/FileOpen';
@@ -37,6 +37,8 @@ const menuItemStyle = {
 export default function SessionView({
     sessionHistory,
     sessionHistoryErr,
+    sessionActionErrors = {},
+    deletingSessions = [],
     tabs,
     loadHistoricalSession,
     switchToHistoricalSession,
@@ -88,8 +90,9 @@ export default function SessionView({
     }, []);
 
     const deleteHandler = useCallback((ev) => {
-        if (!window.confirm('Really delete?  This cannot be undone.')) return;
-        deleteHistoricalSession(getSID(ev.target));
+        const sid = getSID(ev.currentTarget);
+        if (!sid || !window.confirm('Really delete?  This cannot be undone.')) return;
+        deleteHistoricalSession(sid);
     }, [deleteHistoricalSession]);
 
     const [shareAnchor, setShareAnchor] = useState(null);
@@ -188,7 +191,7 @@ export default function SessionView({
                     </TableHead>
                     <TableBody>
                         { history.map((h, i) => (
-                            <TableRow key={i} data-sid={h.id}>
+                            <TableRow key={h.id} data-sid={h.id}>
                                 <TableCell>
                                     {h.id === editingName
                                         ? <SessionFieldEditor init={h.name || ''}
@@ -233,9 +236,10 @@ export default function SessionView({
                                             </Button>
                                         </Tooltip>
                                         {isOwned
-                                            ? <Button disabled={viewedHistory.has(h.id)}
+                                            ? <Button disabled={viewedHistory.has(h.id) || deletingSessions.includes(h.id)}
+                                                    aria-label={deletingSessions.includes(h.id) ? "Deleting dataset" : "Delete dataset"}
                                                     onClick={deleteHandler} >
-                                                <Tooltip title="Permanently delete this session"><DeleteIcon /></Tooltip>
+                                                <Tooltip title="Delete this dataset">{deletingSessions.includes(h.id) ? <CircularProgress size={18} /> : <DeleteIcon />}</Tooltip>
                                             </Button>
                                             : undefined }
                                     </ButtonGroup>
@@ -270,6 +274,11 @@ export default function SessionView({
     return (
          <ThemeProvider theme={theme}>
             <Grid container columns={{xs: 4}} spacing={4}>
+                {Object.entries(sessionActionErrors).filter(([, message]) => message).map(([id, message]) => (
+                    <Grid item xs={4} key={id}><Alert severity="error">
+                        {sessionHistory?.find(row => row.id === id)?.name || 'Dataset'}: {message}
+                    </Alert></Grid>
+                ))}
                 <Grid item xs={1}/>
                 <Grid item xs={2}>
                     <TextField style={{width: '100%', paddingBottom: '2rem'}}

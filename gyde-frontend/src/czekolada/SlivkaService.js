@@ -1,3 +1,7 @@
+import {submitTamarind} from '../integrations/tamarind/submission';
+import {isTamarindCompute} from '../compute';
+import { resultRequest } from './resultRequest';
+import { requestError } from "./requestErrors";
 import React, {createContext, useContext, useMemo, useEffect, useReducer} from 'react';
 
 const SlivkaServiceContext = createContext();
@@ -94,12 +98,17 @@ class SlivkaServiceWrapper {
         return this.errors.join('; ');
     }
 
+    getJobStatus(jobId) {
+        return this.slivkaService.status[jobId];
+    }
+
     service(serviceID) {
         return (this.services || []).find((s) => s.id === serviceID);
     }
 
     submit(service, formData, options, listener) {
         const serviceObj = this.service(service);
+        if (!serviceObj) return Promise.reject(new Error('This tool is not available in this deployment.'));
         return this.slivkaService.submit(service, formData, options, listener, serviceObj);
     }
 
@@ -125,13 +134,14 @@ class SlivkaServiceWrapper {
 }
 
 
-class SlivkaService {
+export class SlivkaService {
     constructor() {
         this.listeners = {};
         this.lastPollTimes = {};
         this.submitTimes = {};
         this.status = {};
         this.jobURLs = {};
+        this.polling = new Set();
 
         this._poller = this._poller.bind(this);
     }
@@ -239,24 +249,28 @@ class SlivkaService {
 
     _startPoller() {
         if (!this._timeout) {
-            console.log('*** Starting Slivka poller');
+            console.log('*** Starting compute job poller');
             this._timeout = setInterval(this._poller, 2000);
         }
     }
 
     _stopPoller() {
         if (this._timeout) {
-            console.log('*** Stopping Slivka poller');
+            console.log('*** Stopping compute job poller');
             clearTimeout(this._timeout);
             this._timeout = undefined;
         }
     }
 
     async _pollJob(jid) {
+        if (this.polling.has(jid)) return;
+        this.polling.add(jid);
         const jobURL = this.jobURLs[jid] || `/api/jobs/${jid}`;
 
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 30000);
         try {
-            const resp = await fetch(jobURL);
+            const resp = await fetch(jobURL, {signal: controller.signal});
             if (!resp.ok) {
                 throw Error(resp.statusText);
             } 
@@ -271,6 +285,9 @@ class SlivkaService {
                 '@url': jobURL
             }
             this._postAll(jid);
+        } finally {
+            clearTimeout(timeout);
+            this.polling.delete(jid);
         }
     }
 
@@ -312,7 +329,6 @@ class SlivkaService {
     }
 }
 
-class ResultsNotFound extends Error {}
 
 async function slivkaSubmit(serviceName, formData, options) {
     if (typeof(options) === 'boolean') {
@@ -333,28 +349,14 @@ async function slivkaSubmit(serviceName, formData, options) {
     const queryString = Object.entries(queryOpts).map(([k, v]) => `${k}=${v}`).join('&');
     if (queryString) submitURL += ('?' + queryString);
 
-    const resp = await fetch(submitURL, {
-        method: 'POST',
-        body: formData
-    })
+    const resp = isTamarindCompute() ? await submitTamarind(submitURL, formData) : await fetch(submitURL, {
+        method: 'POST', body: formData
+    });
     if (!resp.ok) {
         if (resp.status === 404 && useCache === 'probe') {
             return {status: 'NOT_FOUND'};
-        } if (resp.status === 422) { // "Unprocessable entity"
-            const slivkaFail = await resp.json();
-            if (slivkaFail.errors && slivkaFail.errors.length > 0) {
-                throw Error(
-                    slivkaFail.errors.map((err) => {
-                        if (err.parameter) {
-                            return `Bad parameter ${err.parameter} -- ${err.message}`;
-                        } else {
-                            return err.message || 'Unknown error';
-                        }
-                    }).join('; ')
-                );
-            }
         }
-        throw Error(`Slivka request failed: ${resp.statusText}`);
+        throw Error(await requestError(resp));
     }
     let result = await resp.json();
     return result;
@@ -379,15 +381,7 @@ async function slivkaFetch(statusUrl, wantedFiles) {
         }
     });
 
-    const fileResp = await fetch(`${statusUrl}/files`);
-    if (!fileResp.ok) {
-        if (fileResp.status === 404) {
-            throw new ResultsNotFound(`Slivka results not found: ${fileResp.statusText}`);
-        } else {
-            throw Error(`Slivka results retrieval failed: ${fileResp.statusText}`);
-        }
-    }
-    const result = await fileResp.json();
+    const result = await resultRequest(`${statusUrl}/files`);
 
     const filePromises = [];
     for (const file of result.files) {
@@ -408,15 +402,7 @@ async function slivkaFetch(statusUrl, wantedFiles) {
                     }
                 }
 
-                const fileResp = await fetch(file['@content']);
-                if (!fileResp.ok) {
-                    if (fileResp.status === 404) {
-                        throw new ResultsNotFound(`Slivka results not found: ${fileResp.statusText}`);
-                    } else {
-                        throw Error(`Slivka results retrieval failed: ${fileResp.statusText}`);
-                    }
-                }
-                const data = await fileResp[fileRequest.type || 'text']();
+                const data = await resultRequest(file['@content'], fileRequest.type || 'text');
                 return {
                     label: fileRequest.label,
                     path: file.path,

@@ -1,3 +1,5 @@
+import {isTamarindCompute} from '../compute';
+import {predictionMenuLabel} from '../integrations/tamarind/TamarindPredictionLayout';
 import React, { useState, useCallback, useMemo } from "react";
 import {createPortal} from 'react-dom';
 import { saveAs } from "file-saver";
@@ -399,7 +401,7 @@ const StructurePredictionMenu = (props) => {
                           onClick={() => callback()}
                           disabled={predictionPending || pending || !available}
                           sx={{gap: '6px'}} >
-                    <span style={{flex: 1}}>{name}</span>
+                    <span style={{flex: 1}}>{predictionMenuLabel(name, isTamarindCompute())}</span>
                     { pending
                         ? <React.Fragment>
                               <CircularProgress size={12} />

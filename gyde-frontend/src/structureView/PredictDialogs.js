@@ -1,6 +1,8 @@
-import React, {useMemo, useState, useReducer, useCallback, useEffect, createContext, useContext} from 'react';
+import {isTamarindCompute} from '../compute';
+import React, {useMemo, useState, useRef, useReducer, useCallback, useEffect, createContext, useContext} from 'react';
 import {CircularProgress, Checkbox, FormControlLabel, Typography, Stack, Button, Dialog, DialogTitle, DialogContent, DialogActions, TextField} from '@mui/material';
 
+import {PredictionTheme, PredictionInputs, predictionName} from '../integrations/tamarind/TamarindPredictionLayout';
 import { useSlivka, configMapToFormData, ServiceLauncher } from '../czekolada/lib';
 
 
@@ -31,9 +33,13 @@ export function StructurePredictDialog({
     columnTypes,
     columnarData
 }) {
+    const hosted = isTamarindCompute();
     const [jobParameters, setJobParameters] = useState();
     const [jobName, setJobName] = useState();
     const [error, setError] = useState();
+    const [submitting, setSubmitting] = useState(false);
+    const submitLock = useRef(false);
+    const submittedRows = useMemo(() => new Set(), [method, structureInfos]);
     const slivkaService = useSlivka();
 
 
@@ -112,30 +118,40 @@ export function StructurePredictDialog({
 
     const hideParams = useMemo(() => managedHideParams || Object.keys(boundParams || {}), [managedHideParams, boundParams]);
 
-    const runPredictions = useCallback(() => {
-        const service = slivkaService.services.find((s) => s.id === method);
-
-        structureInfos.forEach((structureInfo) => {
-            if (onJobReady) {
-                onJobReady(structureInfo, jobParameters, inputConstructor, predictionOptions, jobName);
-            } else {
-                const structureParams = inputConstructor(structureInfo, predictionOptions);
-                const params = {...jobParameters, ...structureParams};
-                let firstPing = true;
-                const augListener = ((status) => {
-                    onJobSubmitted({...status, structureInfo: structureInfo, firstPing, jobName});
-                    firstPing = false;
-                });
-
-                slivkaService.submit(
-                    method,
-                    configMapToFormData(service, params),
-                    {useCache: true},
-                    augListener
-                );
+    const runPredictions = useCallback(async () => {
+        if (submitLock.current) return;
+        submitLock.current = true;
+        setSubmitting(true);
+        setError(undefined);
+        try {
+            const service = slivkaService.services.find((s) => s.id === method);
+            if (!service) throw Error('This compute tool is unavailable. Refresh the page and try again.');
+            // Validate every selected row before any job is submitted.
+            const inputs = structureInfos.map(info => inputConstructor(info, predictionOptions));
+            for (let i = 0; i < structureInfos.length; i++) {
+                const structureInfo = structureInfos[i];
+                if (submittedRows.has(structureInfo)) continue;
+                if (onJobReady) {
+                    await onJobReady(structureInfo, jobParameters, inputConstructor, predictionOptions, jobName);
+                } else {
+                    let firstPing = true;
+                    await slivkaService.submit(method,
+                        configMapToFormData(service, {...jobParameters, ...inputs[i]}),
+                        {useCache: true}, status => {
+                            onJobSubmitted({...status, structureInfo, firstPing, jobName});
+                            firstPing = false;
+                        });
+                }
+                submittedRows.add(structureInfo);
             }
-        });
-    }, [structureInfos, jobParameters, onJobSubmitted, onJobReady, inputConstructor, predictionOptions, jobName]);
+            onHide();
+        } catch (err) {
+            setError(`${err.message || String(err)}${submittedRows.size ? ` ${submittedRows.size} row(s) already submitted; retry will continue with the remaining rows.` : ''}`);
+        } finally {
+            submitLock.current = false;
+            setSubmitting(false);
+        }
+    }, [submittedRows, onHide, structureInfos, jobParameters, onJobSubmitted, onJobReady, inputConstructor, predictionOptions, jobName, method, slivkaService]);
 
     const textfieldCallback = useCallback((field) => {
         if (field) {
@@ -150,25 +166,27 @@ export function StructurePredictDialog({
 
     return (
         <PredictionOptionsContext.Provider value={predictionOptionsBaton}>
+            <PredictionTheme hosted={hosted}>
             <Dialog open={true}
-                    onClose={onHide}
-                    maxWidth="80vw">
-                <DialogTitle id="upload-structure-dialog-title">
-                    Run {method}
+                    onClose={submitting ? undefined : onHide}
+                    fullWidth maxWidth={hosted ? "md" : "sm"}>
+                <DialogTitle id="upload-structure-dialog-title" sx={hosted ? {textAlign:"center",pt:3} : undefined}>
+                    {hosted ? predictionName(method) : `Run ${method}`}
+                    {hosted && <Typography variant="body2" color="text.secondary" sx={{mt:1}}>Structure Prediction · Tamarind Bio</Typography>}
                 </DialogTitle>
                 <DialogContent
                     sx={{
-                        width: '40rem',
+                        width: '100%', boxSizing: 'border-box',
                         display: 'flex',
                         flexDirection: 'column',
-                        gap: '40px',
+                        gap: '24px',
+                        ...(hosted ? {px:{xs:2,sm:4}} : {}),
                     }}
                 >
-                    {error
-                        ? <div style={{color: 'red'}}>{ error.toString() }</div>
-                        : <React.Fragment>
+                    {error && <Typography color="error" role="alert">{error.toString()}</Typography>}
+                        <React.Fragment>
                             {message 
-                                ? <div>{ message}</div>
+                                ? hosted ? <Typography component="div" variant="body2" color="text.secondary">{message}</Typography> : <div>{message}</div>
                                 : undefined }
                             <TextField
                                 ref={textfieldCallback}
@@ -182,6 +200,7 @@ export function StructurePredictDialog({
                                 sx={{marginTop: '0.5rem'}}
                                 onChange={(ev) => setJobName(ev.target.value)} />
 
+                            {hosted && <PredictionInputs infos={structureInfos} />}
                             <ServiceLauncher service={method}
                                              baseParams={boundParams}
                                              hideParams={hideParams}
@@ -190,15 +209,17 @@ export function StructurePredictDialog({
                                              showSubmitButton={false}
                                              skipValidationParams={skipValidationParams}
                                              parameterCallback={parameterCallback} />
-                          </React.Fragment> }
+                          </React.Fragment>
                 </DialogContent>
-                <DialogActions>
-                    <Button onClick={runPredictions}
-                            disabled={!jobParameters || error || clashOther || !jobName}>
+                <DialogActions sx={hosted ? {px:4,pb:3,justifyContent:"center"} : undefined}>
+                    <Button onClick={onHide} disabled={submitting}>Cancel</Button>
+                    <Button variant="contained" onClick={runPredictions}
+                            disabled={submitting || !jobParameters || !boundParams || clashOther || !jobName}>
                         Predict structures
                     </Button>
                 </DialogActions>
             </Dialog>
+            </PredictionTheme>
         </PredictionOptionsContext.Provider>
     );
 }
@@ -238,10 +259,10 @@ export function NimPredictionDialog({
                 maxWidth="80vw">
             <DialogContent
                 sx={{
-                    width: '40rem',
+                    width: '100%', boxSizing: 'border-box',
                     display: 'flex',
                     flexDirection: 'column',
-                    gap: '40px',
+                    gap: '24px',
                 }}
             >
                 <TextField
